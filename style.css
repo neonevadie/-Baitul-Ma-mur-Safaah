@@ -777,3 +777,59 @@ tr:hover td { background:#f8fafc; }
   from { opacity:0; transform: scale(0.85); }
   to   { opacity:1; transform: scale(1); }
 }
+
+/* ========== LOGIN 2-STEP ADDITIONS ========== */
+.login-role-display {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: rgba(255,255,255,0.07);
+  border: 1.5px solid rgba(255,255,255,0.12);
+  border-radius: 16px;
+  margin-bottom: 24px;
+}
+.login-role-icon-wrap {
+  width: 52px; height: 52px;
+  background: linear-gradient(135deg, var(--primary-light), var(--primary));
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; color: #fff;
+  box-shadow: 0 8px 20px rgba(15,39,68,0.4);
+  flex-shrink: 0;
+}
+.btn-back {
+  padding: 14px 20px;
+  background: rgba(255,255,255,0.06);
+  border: 1.5px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-back:hover {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+}
+@keyframes fadeOut {
+  to { opacity: 0; transform: translateY(-10px); }
+}
+
+/* ========== LOG PAGE ========== */
+.badge-purple { background: rgba(124,58,237,0.12); color: var(--purple); }
+
+/* ========== STOK STATUS COLORS ========== */
+.stock-ok { color: var(--accent2); }
+.stock-low { color: var(--danger); }
+
+/* ========== CHAT BADGE ========== */
+.chat-badge {
+  min-width: 20px; height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  font-size: 11px;
+}

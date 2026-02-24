@@ -1,0 +1,56 @@
+# ================================================================
+#   BMS — .gitignore
+#   CV. Baitul Ma'mur Syafaah  |  Sistem Manajemen Bisnis
+# ================================================================
+
+# ── OS Files ──────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ── Editor / IDE ──────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+*~
+
+# ── Logs & Temp ───────────────────────────────────────────────
+*.log
+*.tmp
+*.temp
+npm-debug.log*
+
+# ── Environment & Secrets ─────────────────────────────────────
+# JANGAN pernah commit file .env ke GitHub!
+.env
+.env.local
+.env.production
+.env.*.local
+secrets.js
+config.local.js
+
+# ── Node (jika pakai npm) ─────────────────────────────────────
+node_modules/
+package-lock.json
+
+# ── Build Output ──────────────────────────────────────────────
+dist/
+build/
+.cache/
+
+# ── Backup Files ──────────────────────────────────────────────
+*.bak
+*.backup
+*_backup.*
+backup/

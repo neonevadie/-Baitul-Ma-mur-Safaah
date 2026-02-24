@@ -28,6 +28,13 @@
   const db = getFirestore(app);
   const auth = getAuth(app);
 
+
+  // expose firestore ke global (UNTUK TEST & DEBUG)
+  window.db = db;
+  window.doc = doc;
+  window.setDoc = setDoc;
+  window.getDoc = getDoc;
+
   // Export ke window agar bisa diakses dari JS biasa
   window.firebaseDB = db;
   window.firebaseAuth = auth;

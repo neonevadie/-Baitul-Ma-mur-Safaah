@@ -778,58 +778,212 @@ tr:hover td { background:#f8fafc; }
   to   { opacity:1; transform: scale(1); }
 }
 
-/* ========== LOGIN 2-STEP ADDITIONS ========== */
-.login-role-display {
+/* ================================================================
+   BMS v3.0 — Tambahan Styles
+   Dark Mode, Running Text, Sales Dashboard, Settings, Opname
+   ================================================================ */
+
+/* ── DARK MODE ──────────────────────────────────────────────── */
+body[data-theme="dark"] {
+  --bg    : #0f172a;
+  --card  : #1e293b;
+  --text  : #e2e8f0;
+  --text-muted: #94a3b8;
+  --border: #334155;
+  --primary: #1e3a5f;
+  --primary-mid: #1e40af;
+  --shadow: 0 4px 24px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.5);
+}
+body[data-theme="dark"] .topbar,
+body[data-theme="dark"] th { background: #1e293b; }
+body[data-theme="dark"] .card { background: #1e293b; border-color: #334155; }
+body[data-theme="dark"] .modal { background: #1e293b; }
+body[data-theme="dark"] .modal-header,
+body[data-theme="dark"] .modal-footer { background: #1e293b; }
+body[data-theme="dark"] .field input,
+body[data-theme="dark"] .field select,
+body[data-theme="dark"] .field textarea { background: #0f172a; color: var(--text); border-color: #334155; }
+body[data-theme="dark"] .search-bar,
+body[data-theme="dark"] .search-topbar { background: #0f172a; border-color: #334155; }
+body[data-theme="dark"] .search-topbar input,
+body[data-theme="dark"] .search-bar input { color: var(--text); }
+body[data-theme="dark"] tr:hover td { background: #273549; }
+body[data-theme="dark"] .stat-card { background: #1e293b; }
+body[data-theme="dark"] .qa-card { background: #1e293b; }
+body[data-theme="dark"] .nav-label { color: rgba(255,255,255,0.2); }
+body[data-theme="dark"] .btn-outline { color: var(--text); border-color: #334155; }
+body[data-theme="dark"] .btn-outline:hover { background: #273549; }
+body[data-theme="dark"] .notif-panel,
+body[data-theme="dark"] .chat-window { background: #1e293b; border-color: #334155; }
+body[data-theme="dark"] .notif-item:hover,
+body[data-theme="dark"] .chat-contact:hover { background: #273549; }
+body[data-theme="dark"] .invoice-preview { background: #1e293b; border-color: #334155; }
+body[data-theme="dark"] code { background: #0f172a !important; color: var(--accent) !important; }
+
+/* ── RUNNING TEXT ────────────────────────────────────────────── */
+.running-text-bar {
+  background: linear-gradient(90deg, var(--primary), var(--primary-mid));
+  color: rgba(255,255,255,0.9);
+  padding: 6px 0;
+  overflow: hidden;
+  position: relative;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
-  background: rgba(255,255,255,0.07);
-  border: 1.5px solid rgba(255,255,255,0.12);
-  border-radius: 16px;
-  margin-bottom: 24px;
 }
-.login-role-icon-wrap {
-  width: 52px; height: 52px;
-  background: linear-gradient(135deg, var(--primary-light), var(--primary));
-  border-radius: 14px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px; color: #fff;
-  box-shadow: 0 8px 20px rgba(15,39,68,0.4);
-  flex-shrink: 0;
-}
-.btn-back {
-  padding: 14px 20px;
-  background: rgba(255,255,255,0.06);
-  border: 1.5px solid rgba(255,255,255,0.12);
-  border-radius: 14px;
-  color: rgba(255,255,255,0.7);
-  cursor: pointer;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-.btn-back:hover {
-  background: rgba(255,255,255,0.1);
+.running-text-label {
+  background: var(--accent);
   color: #fff;
-}
-@keyframes fadeOut {
-  to { opacity: 0; transform: translateY(-10px); }
-}
-
-/* ========== LOG PAGE ========== */
-.badge-purple { background: rgba(124,58,237,0.12); color: var(--purple); }
-
-/* ========== STOK STATUS COLORS ========== */
-.stock-ok { color: var(--accent2); }
-.stock-low { color: var(--danger); }
-
-/* ========== CHAT BADGE ========== */
-.chat-badge {
-  min-width: 20px; height: 20px;
-  padding: 0 5px;
-  border-radius: 10px;
+  padding: 2px 14px;
   font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-right: 12px;
+  border-radius: 0 20px 20px 0;
+}
+.running-text-track {
+  overflow: hidden;
+  flex: 1;
+}
+#running-text-content {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 25s linear infinite;
+}
+
+/* ── FOOTER ──────────────────────────────────────────────────── */
+.app-footer {
+  text-align: center;
+  padding: 14px 28px;
+  color: var(--text-muted);
+  font-size: 11.5px;
+  border-top: 1px solid var(--border);
+  background: var(--card);
+  margin-top: auto;
+}
+.app-footer a { color: var(--accent); text-decoration: none; font-weight: 700; }
+.app-footer a:hover { text-decoration: underline; }
+
+/* ── SETTINGS PAGE ───────────────────────────────────────────── */
+.settings-section { margin-bottom: 28px; }
+.settings-section h3 {
+  font-size: 15px; font-weight: 800; margin-bottom: 16px;
+  padding-bottom: 10px; border-bottom: 2px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.settings-user-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; background: var(--bg);
+  border-radius: 12px; margin-bottom: 8px;
+  border: 1px solid var(--border);
+}
+.settings-user-row strong { flex: 1; font-size: 14px; }
+.settings-user-row span:last-child { margin-left: auto; }
+.danger-zone {
+  border: 2px solid rgba(239,68,68,0.3);
+  border-radius: var(--radius-sm);
+  padding: 20px;
+  background: rgba(239,68,68,0.04);
+}
+.danger-zone h4 { color: var(--danger); margin-bottom: 12px; font-size: 13px; font-weight: 800; }
+.danger-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* ── OPNAME PAGE ─────────────────────────────────────────────── */
+.opname-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 18px;
+}
+.opname-header h3 { font-size: 16px; font-weight: 800; }
+
+/* ── SALES DASHBOARD ─────────────────────────────────────────── */
+.sales-chart-wrap {
+  background: var(--card); border-radius: var(--radius);
+  padding: 22px; box-shadow: var(--shadow);
+  margin-bottom: 22px;
+}
+.sales-chart-wrap h3 { font-size: 14px; font-weight: 700; margin-bottom: 16px; }
+.sales-user-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 14px; border-radius: 10px;
+  background: var(--bg); border: 1.5px solid var(--border);
+  cursor: pointer; font-size: 13px; font-weight: 600;
+  margin-bottom: 6px; transition: all 0.18s;
+}
+.sales-user-btn:hover { border-color: var(--primary-light); background: rgba(37,99,168,0.08); }
+.sales-user-btn.active { background: rgba(245,158,11,0.15); border-color: var(--accent); color: var(--accent); }
+
+/* ── THEME TOGGLE ────────────────────────────────────────────── */
+.btn-theme {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: var(--bg); border: 1.5px solid var(--border);
+  cursor: pointer; display: flex; align-items: center;
+  justify-content: center; color: var(--text-muted);
+  font-size: 16px; transition: all 0.15s;
+}
+.btn-theme:hover { background: var(--border); color: var(--text); }
+
+/* ── SALES LIST PANEL ────────────────────────────────────────── */
+#sales-list-panel {
+  display: none;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 16px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+/* ── LOG PAGE ────────────────────────────────────────────────── */
+.log-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+/* ── ONLINE INDICATOR ────────────────────────────────────────── */
+.online-badge {
+  background: rgba(34,197,94,0.15);
+  color: var(--online);
+  font-size: 11px; font-weight: 700;
+  padding: 3px 10px; border-radius: 20px;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.online-badge::before {
+  content: ''; width: 7px; height: 7px;
+  border-radius: 50%; background: var(--online);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* ── YEAR SELECTOR ───────────────────────────────────────────── */
+.year-select {
+  padding: 7px 14px; border-radius: 9px;
+  border: 1.5px solid var(--border);
+  background: var(--bg); color: var(--text);
+  font-size: 13px; font-weight: 600;
+  cursor: pointer; outline: none;
+}
+.year-select:focus { border-color: var(--primary-light); }
+
+/* ── DISTRIBUTION CHART ──────────────────────────────────────── */
+.dist-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.dist-item:last-child { border-bottom: none; }
+.dist-name { flex: 1; font-weight: 600; }
+.dist-bar-wrap { width: 140px; background: var(--border); border-radius: 20px; height: 8px; overflow: hidden; }
+.dist-bar { height: 100%; border-radius: 20px; background: linear-gradient(90deg, var(--primary-light), var(--accent2)); }
+.dist-pct { font-weight: 800; color: var(--primary-light); width: 40px; text-align: right; font-size: 12px; }
+
+/* ── RESPONSIVE FIXES ────────────────────────────────────────── */
+@media(max-width:768px) {
+  .running-text-label { display: none; }
+  .stats-grid { grid-template-columns: 1fr 1fr !important; }
 }

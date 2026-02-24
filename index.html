@@ -819,6 +819,25 @@ tr:hover td { background:#f8fafc; }
   .main { margin-left:0; }
   .invoice-preview { box-shadow:none; border:none; }
 }
+
+/* Login logo image */
+.login-logo-wrap {
+  width: 160px; height: 80px;
+  margin: 0 auto 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+.login-logo-img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  /* Invert to white since logo is black on white */
+  filter: invert(1) brightness(2);
+  animation: logoFadeIn 0.8s cubic-bezier(0.16,1,0.3,1) both;
+}
+@keyframes logoFadeIn {
+  from { opacity:0; transform: scale(0.85); }
+  to   { opacity:1; transform: scale(1); }
+}
+
 </style>
 </head>
 <body>
@@ -883,7 +902,7 @@ tr:hover td { background:#f8fafc; }
   <div class="login-grid-pattern"></div>
   <div class="login-box">
     <div class="login-brand">
-      <div class="brand-icon"><i class="fas fa-mosque"></i></div>
+      <div class="login-logo-wrap"><img src="data:image/png;base64,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" alt="BMS" class="login-logo-img"></div>
       <div class="brand-name">BMS</div>
       <div class="brand-sub">Baitul Ma'mur Syafaah · Sistem Manajemen Bisnis</div>
     </div>
@@ -928,12 +947,7 @@ tr:hover td { background:#f8fafc; }
       <i class="fas fa-sign-in-alt"></i> Masuk ke Dashboard
     </button>
 
-    <div class="demo-info">
-      <p>🔑 Akun Demo:</p>
-      <div class="demo-row"><span>Owner</span><span>owner / bms2024</span></div>
-      <div class="demo-row"><span>Admin</span><span>admin / bms2024</span></div>
-      <div class="demo-row"><span>Sales</span><span>sales / bms2024</span></div>
-    </div>
+    
   </div>
 </div>
 
@@ -1375,98 +1389,13 @@ tr:hover td { background:#f8fafc; }
       <div class="page" id="page-tutorial">
         <div class="section-header">
           <div class="section-title">📖 Panduan Penggunaan BMS</div>
-          <div class="section-sub">Baitul Ma'mur Syafaah — Sistem Manajemen Bisnis v2.0 + Firebase</div>
+          <div class="section-sub">Baitul Ma'mur Syafaah — Sistem Manajemen Bisnis</div>
         </div>
 
-        <div class="alert alert-info" style="margin-bottom:24px">
-          <i class="fas fa-fire"></i>
-          <div><strong>Firebase Realtime Sync aktif!</strong> Data tersimpan di cloud dan tersinkronisasi otomatis ke semua perangkat tim Anda.</div>
-        </div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-          <div class="card">
-            <div class="card-header" style="background:linear-gradient(135deg,#0f2744,#1a3a5c);border-radius:18px 18px 0 0">
-              <h3 style="color:#fff"><i class="fas fa-fire" style="margin-right:8px"></i>Setup Firebase</h3>
-            </div>
-            <div class="card-body">
-              <div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> Wajib dikonfigurasi agar data tersimpan permanen di cloud</div>
-              <div class="tutorial-step">
-                <div class="step-num">1</div>
-                <div class="step-content"><h4>Buat Project Firebase</h4><p>Buka <strong>console.firebase.google.com</strong> → klik "Add project" → beri nama <code>bms-syafaah</code>.</p></div>
-              </div>
-              <div class="tutorial-step">
-                <div class="step-num">2</div>
-                <div class="step-content"><h4>Aktifkan Firestore Database</h4><p>Di sidebar Firebase → klik <strong>Firestore Database</strong> → "Create database" → pilih mode production.</p></div>
-              </div>
-              <div class="tutorial-step">
-                <div class="step-num">3</div>
-                <div class="step-content"><h4>Aktifkan Authentication</h4><p>Di sidebar → <strong>Authentication</strong> → "Get started" → aktifkan <strong>Email/Password</strong>. Tambahkan akun tim Anda.</p></div>
-              </div>
-              <div class="tutorial-step">
-                <div class="step-num">4</div>
-                <div class="step-content"><h4>Salin Config Firebase</h4><p>Project Settings → General → scroll ke bawah → klik ikon web (<code>&lt;/&gt;</code>) → salin <code>firebaseConfig</code> lalu paste di baris 20–28 file ini.</p></div>
-              </div>
-              <div class="tutorial-step">
-                <div class="step-num">5</div>
-                <div class="step-content"><h4>Ubah Flag FIREBASE_ACTIVE</h4><p>Cari <code>window.FIREBASE_ACTIVE = false</code> di baris ~47, ubah menjadi <code>true</code>. Selesai!</p></div>
-              </div>
-            </div>
-          </div>
 
-          <div class="card">
-            <div class="card-header" style="background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:18px 18px 0 0">
-              <h3 style="color:#fff"><i class="fab fa-github" style="margin-right:8px"></i>Upload via PowerShell</h3>
-            </div>
-            <div class="card-body">
-              <div class="alert alert-success"><i class="fab fa-github"></i> Upload ke GitHub Pages lalu aktifkan — website online GRATIS!</div>
-              <div class="tutorial-step">
-                <div class="step-num">1</div>
-                <div class="step-content"><h4>Install Git</h4><p>Download Git dari <code>git-scm.com</code> → install → buka PowerShell. Cek dengan: <code>git --version</code></p></div>
-              </div>
-              <div class="tutorial-step">
-                <div class="step-num">2</div>
-                <div class="step-content"><h4>Setup Awal (Sekali Saja)</h4><p>Jalankan di PowerShell:</p>
-                  <pre style="background:#1e293b;color:#e2e8f0;padding:12px;border-radius:8px;font-size:11.5px;overflow-x:auto;margin-top:8px">git config --global user.name "NamaAnda"
-git config --global user.email "email@anda.com"</pre>
-                </div>
-              </div>
-              <div class="tutorial-step">
-                <div class="step-num">3</div>
-                <div class="step-content"><h4>Inisialisasi & Upload</h4><p>Jalankan perintah ini di folder yang berisi file <code>bms.html</code>:</p>
-                  <pre style="background:#1e293b;color:#e2e8f0;padding:12px;border-radius:8px;font-size:11.5px;overflow-x:auto;margin-top:8px"># Masuk ke folder bms
-cd "D:\bms\web"
 
-# Rename ke index.html dulu
-Rename-Item bms.html index.html
-
-# Init git
-git init
-git add .
-git commit -m "Initial commit BMS"
-
-# Hubungkan ke repo GitHub Anda
-git remote add origin https://github.com/neonevadie/Baitul-Ma-mur-Safaah.git
-
-# Upload!
-git branch -M main
-git push -u origin main</pre>
-                </div>
-              </div>
-              <div class="tutorial-step">
-                <div class="step-num">4</div>
-                <div class="step-content"><h4>Aktifkan GitHub Pages</h4><p>Di GitHub → Settings → Pages → Source: pilih <strong>main branch</strong> → Save. Tunggu 2-3 menit → website online!</p></div>
-              </div>
-              <div class="tutorial-step">
-                <div class="step-num">5</div>
-                <div class="step-content"><h4>Update File di Kemudian Hari</h4><p>Setelah edit file, jalankan:</p>
-                  <pre style="background:#1e293b;color:#e2e8f0;padding:12px;border-radius:8px;font-size:11.5px;overflow-x:auto;margin-top:8px">git add .
-git commit -m "Update fitur baru"
-git push</pre>
-                </div>
-              </div>
-              <div class="alert alert-info" style="margin-top:4px"><i class="fas fa-info-circle"></i> URL GitHub Pages: <strong>neonevadie.github.io/Baitul-Ma-mur-Safaah</strong></div>
-            </div>
-          </div>
 
           <div class="card">
             <div class="card-header" style="background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:18px 18px 0 0">
@@ -1802,7 +1731,7 @@ git push</pre>
 </div>
 
 <!-- ===== SCRIPTS ===== -->
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ===== USERS =====
 const USERS = {
   owner: { pass:'bms2024', name:'Owner BMS', label:'Pemilik / Administrator', avatar:'O', menus:['dashboard','barang','invoice','stok','mitra','keuangan','laporan','tutorial'] },
@@ -2683,11 +2612,17 @@ function showToast(msg, type='success') {
   msgEl.textContent = msg;
   const icons = { success:'fa-check-circle', error:'fa-times-circle', info:'fa-info-circle', warning:'fa-exclamation-circle' };
   icon.className = 'fas '+(icons[type]||'fa-check-circle');
-  icon.style.color = type==='error'?'#ef4444':type==='warning'?'#f59e0b':type==='info'?'#2563a8':'#10b981';
+  icon.style.color = type==='error'?'#ef4444':'#10b981';
+  const bgColors = { success:'rgba(16,185,129,0.12)', error:'rgba(239,68,68,0.12)', info:'rgba(37,99,168,0.12)', warning:'rgba(245,158,11,0.12)' };
+  toast.style.background = bgColors[type] || bgColors.success;
   toast.style.display = 'flex';
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.style.display='none', 3500);
+  toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 3200);
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  updateDate();
+});
 </script>
 </body>
 </html>

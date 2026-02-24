@@ -1153,7 +1153,7 @@ tr:hover td { background:#f8fafc; }
           </div>
           <div style="display:flex;gap:10px">
             <button class="btn btn-outline" onclick="exportCSV('barang')"><i class="fas fa-file-csv"></i> Export</button>
-            <button class="btn btn-primary" onclick="openModal('modal-barang')"><i class="fas fa-plus"></i> Tambah Barang</button>
+            <button class="btn btn-primary" id="btn-tambah-barang" onclick="openModal('modal-barang')"><i class="fas fa-plus"></i> Tambah Barang</button>
           </div>
         </div>
         <div class="card">
@@ -1725,14 +1725,14 @@ tr:hover td { background:#f8fafc; }
 const USERS = {
   owner: { pass:'bms2024', name:'Owner BMS', label:'Pemilik / Administrator', avatar:'O', menus:['dashboard','barang','invoice','stok','mitra','keuangan','laporan','tutorial'] },
   admin: { pass:'bms2024', name:'Admin Rina', label:'Admin Keuangan', avatar:'R', menus:['dashboard','invoice','stok','keuangan','mitra'] },
-  sales: { pass:'bms2024', name:'Sales Budi', label:'Tim Sales', avatar:'B', menus:['dashboard','invoice','mitra','barang'] },
+  sales: { pass:'bms2024', name:'Sales Budi', label:'Tim Sales', avatar:'B', menus:['dashboard','stok','invoice','mitra'] },
 };
 
 const MENU_CONFIG = [
   { id:'dashboard', label:'Dashboard', icon:'fa-gauge', sub:'Ringkasan bisnis hari ini' },
   { id:'barang', label:'Data Barang', icon:'fa-box-open', sub:'Kelola produk & inventaris' },
   { id:'invoice', label:'Invoice', icon:'fa-file-invoice', sub:'Buat & kelola invoice', badge:42 },
-  { id:'stok', label:'Manajemen Stok', icon:'fa-warehouse', sub:'Stok masuk & keluar' },
+  { id:'stok', label:'Info Stok', icon:'fa-warehouse', sub:'Informasi stok barang' },
   { id:'mitra', label:'Mitra Bisnis', icon:'fa-handshake', sub:'Pelanggan & pemasok' },
   { id:'keuangan', label:'Keuangan', icon:'fa-chart-line', sub:'Laporan keuangan' },
   { id:'laporan', label:'Laporan & Analitik', icon:'fa-chart-bar', sub:'Analisis performa' },
@@ -1817,25 +1817,67 @@ function doLogin() {
     return;
   }
   currentUser = { ...user, username: u };
+  // Simpan session ke localStorage agar tidak logout saat refresh
+  localStorage.setItem('bms_session', JSON.stringify({ username: u }));
+  applySession(currentUser);
+}
+
+function applySession(user) {
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('sb-avatar').textContent = user.avatar;
   document.getElementById('sb-name').textContent = user.name;
   document.getElementById('sb-role').textContent = user.label;
   buildNav(user.menus);
+  applyRoleRestrictions(user.username);
   initData();
   navigateTo('dashboard');
   updateDate();
   renderNotifications();
   renderStokKritis();
-  showToast(`✅ Selamat datang, ${user.name}!`);
+  if (document.getElementById('login-page').style.display === 'none')
+    showToast(`✅ Selamat datang, ${user.name}!`);
 }
 
 function doLogout() {
   if (!confirm('Yakin ingin keluar?')) return;
+  localStorage.removeItem('bms_session');
   document.getElementById('login-page').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
   currentUser = null;
+}
+
+// Restore session saat halaman di-refresh
+function restoreSession() {
+  const saved = localStorage.getItem('bms_session');
+  if (!saved) return;
+  try {
+    const { username } = JSON.parse(saved);
+    const user = USERS[username];
+    if (!user) { localStorage.removeItem('bms_session'); return; }
+    currentUser = { ...user, username };
+    applySession(currentUser);
+  } catch(e) {
+    localStorage.removeItem('bms_session');
+  }
+}
+
+// Terapkan pembatasan UI berdasarkan role
+function applyRoleRestrictions(username) {
+  const isSales = (username === 'sales');
+  // Sembunyikan tombol Tambah Barang untuk sales
+  const btnTambahBarang = document.getElementById('btn-tambah-barang');
+  if (btnTambahBarang) btnTambahBarang.style.display = isSales ? 'none' : '';
+  // Untuk stok page: sales hanya lihat — sembunyikan tombol Stok Masuk/Keluar
+  const stokBtns = document.querySelectorAll('#page-stok .btn-success, #page-stok .btn-danger');
+  stokBtns.forEach(btn => btn.style.display = isSales ? 'none' : '');
+  // Update judul halaman stok untuk sales
+  const stokTitle = document.querySelector('#page-stok .card-header h3');
+  if (stokTitle) {
+    stokTitle.innerHTML = isSales
+      ? '<i class="fas fa-warehouse" style="color:var(--primary-light)"></i>Info Stok Barang <span style="font-size:12px;color:var(--text-muted);font-weight:400">(read-only)</span>'
+      : '<i class="fas fa-warehouse" style="color:var(--primary-light)"></i>Rekap Stok Barang';
+  }
 }
 
 // ===== NAV =====
@@ -1902,6 +1944,8 @@ function renderAll() {
   renderBarang(); renderInvoice(); renderStok();
   renderMitra(); renderPengeluaran(); renderPembelian();
   renderStokKritis(); buildMainChart(); fillDropdowns();
+  // Re-terapkan pembatasan role setelah render ulang
+  if (currentUser) applyRoleRestrictions(currentUser.username);
 }
 
 // ===== FIRESTORE: LOAD SEMUA DATA =====
@@ -2018,6 +2062,7 @@ function renderBarang() {
   const tbody = document.getElementById('tbody-barang');
   const badge = document.getElementById('total-barang-badge');
   if(badge) badge.textContent = DB.barang.length + ' Item';
+  const canEdit = currentUser && (currentUser.username === 'owner' || currentUser.username === 'admin');
   tbody.innerHTML = DB.barang.map((b,i) => `
     <tr>
       <td><div style="width:44px;height:44px;border-radius:10px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:22px">📦</div></td>
@@ -2030,10 +2075,10 @@ function renderBarang() {
       <td class="${b.stok<=b.minStok?'stock-low':'stock-ok'}">${b.stok}</td>
       <td><span class="badge ${b.stok<=b.minStok?'badge-red':'badge-green'}">${b.stok<=b.minStok?'⚠️ Kritis':'✅ Aman'}</span></td>
       <td>
-        <div style="display:flex;gap:6px">
+        ${canEdit ? `<div style="display:flex;gap:6px">
           <button class="btn btn-outline btn-icon btn-sm" title="Edit" onclick="editBarang(${i})"><i class="fas fa-edit"></i></button>
           <button class="btn btn-danger btn-icon btn-sm" title="Hapus" onclick="hapusBarang(${i})"><i class="fas fa-trash"></i></button>
-        </div>
+        </div>` : '<span style="color:var(--text-muted);font-size:12px">—</span>'}
       </td>
     </tr>`).join('');
 }
@@ -2763,6 +2808,8 @@ function showToast(msg, type='success') {
 
 document.addEventListener('DOMContentLoaded', () => {
   updateDate();
+  // Restore session jika ada — user tidak perlu login ulang saat refresh
+  restoreSession();
 });
 </script>
 

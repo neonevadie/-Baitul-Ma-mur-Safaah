@@ -877,10 +877,106 @@ tr:hover td { background:#f8fafc; }
   .content { padding: 10px 8px; }
   #page-invoice > div:nth-child(2) { grid-template-columns: 1fr 1fr !important; }
 }
+/* ================================================================
+   @PRINT — Hanya cetak area invoice, sembunyikan semua elemen lain
+   ================================================================ */
 @media print {
-  .sidebar, .topbar, .chat-fab, .chat-window, #toast { display:none !important; }
-  .main { margin-left:0; }
-  .invoice-preview { box-shadow:none; border:none; }
+  /* ── Sembunyikan SEMUA elemen UI ── */
+  body > *,
+  .sidebar, .topbar, .running-text-bar,
+  .chat-fab, .chat-window, .notif-panel,
+  #toast, #sidebar-overlay,
+  .actions-bar, .stats-grid, .quick-actions,
+  .dashboard-grid, .keu-grid, .opname-header,
+  .app-footer, .modal-footer,
+  .modal-header .modal-close,
+  [class*="page-"]:not(.print-target),
+  .content > .page { display:none !important; }
+
+  /* ── Reset layout ── */
+  html, body { background:#fff !important; margin:0 !important; padding:0 !important; }
+  .main     { margin-left:0 !important; padding:0 !important; }
+  .content  { padding:0 !important; }
+
+  /* ── Tampilkan wrapper print ── */
+  #print-invoice-wrapper {
+    display:block !important;
+    width:100%; padding:0;
+  }
+
+  /* ── Invoice styling cetak ── */
+  .invoice-preview {
+    display:block !important;
+    box-shadow:none !important;
+    border:none !important;
+    padding:16mm 20mm !important;
+    margin:0 !important;
+    background:#fff !important;
+    max-width:none !important;
+    font-family:Arial,sans-serif !important;
+    font-size:12px !important;
+    color:#111 !important;
+  }
+  .invoice-header {
+    display:flex !important;
+    justify-content:space-between !important;
+    align-items:flex-start !important;
+    padding-bottom:12px !important;
+    border-bottom:2.5px solid #0f2744 !important;
+    margin-bottom:14px !important;
+  }
+  .invoice-company h2  { font-size:17px !important; color:#0f2744 !important; margin:0 0 4px !important; }
+  .invoice-company p   { font-size:11px !important; color:#555 !important; line-height:1.6 !important; }
+  .invoice-meta h1     { font-size:26px !important; color:#0f2744 !important; margin:0 0 6px !important; letter-spacing:2px !important; }
+  .invoice-meta p      { font-size:11.5px !important; margin:2px 0 !important; }
+  .invoice-to          { background:#f4f7fb !important; border-left:4px solid #0f2744 !important;
+                         padding:10px 14px !important; margin-bottom:14px !important; border-radius:4px !important; }
+  .invoice-to h4       { font-size:11px !important; color:#555 !important; margin:0 0 3px !important; text-transform:uppercase !important; }
+  .invoice-to p        { font-size:13px !important; font-weight:bold !important; color:#0f2744 !important; margin:0 !important; }
+  .invoice-table       { width:100% !important; border-collapse:collapse !important; margin-bottom:12px !important; }
+  .invoice-table thead tr th {
+    background:#0f2744 !important; color:#fff !important;
+    padding:8px 10px !important; font-size:11.5px !important;
+    text-align:left !important;
+    -webkit-print-color-adjust:exact !important;
+    print-color-adjust:exact !important;
+  }
+  .invoice-table tbody tr td { padding:7px 10px !important; border-bottom:1px solid #e2e8f0 !important; font-size:12px !important; }
+  .invoice-table tbody tr:nth-child(even) td { background:#f8fafc !important; }
+  .invoice-totals      { display:flex !important; justify-content:flex-end !important; margin-bottom:18px !important; }
+  .invoice-totals table{ width:260px !important; border-collapse:collapse !important; }
+  .invoice-totals td   { padding:5px 10px !important; font-size:12px !important; }
+  .invoice-totals .total-row td {
+    background:#0f2744 !important; color:#fff !important;
+    font-weight:bold !important; font-size:13px !important;
+    -webkit-print-color-adjust:exact !important;
+    print-color-adjust:exact !important;
+  }
+  .invoice-footer      { font-size:11px !important; color:#666 !important;
+                         padding-top:10px !important; border-top:1px solid #e2e8f0 !important;
+                         margin-bottom:24px !important; }
+
+  /* ── Area tanda tangan ── */
+  .invoice-sign-area {
+    display:grid !important;
+    grid-template-columns:1fr 1fr 1fr !important;
+    gap:24px !important;
+    margin-top:36px !important;
+    padding-top:14px !important;
+    border-top:1px solid #e2e8f0 !important;
+  }
+  .sign-box             { text-align:center !important; }
+  .sign-line            { display:block !important; width:100% !important;
+                          height:56px !important; border-bottom:1.5px solid #374151 !important;
+                          margin-bottom:6px !important; }
+  .sign-box strong      { font-size:11.5px !important; display:block !important; margin-bottom:2px !important; }
+  .sign-box p           { font-size:10.5px !important; color:#777 !important; margin:0 !important; }
+
+  /* ── Page settings ── */
+  @page { size:A4 portrait; margin:10mm 8mm; }
+
+  /* ── Warna paksa tercetak ── */
+  * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
 }
 
 /* Login logo image */

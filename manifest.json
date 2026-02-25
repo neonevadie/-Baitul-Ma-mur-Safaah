@@ -1,0 +1,44 @@
+{
+  "name": "BMS — Baitul Ma'mur Syafaah",
+  "short_name": "BMS",
+  "description": "Sistem Manajemen Bisnis CV. Baitul Ma'mur Syafaah",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#0f2744",
+  "background_color": "#0f2744",
+  "lang": "id",
+  "icons": [
+    {
+      "src": "assets/img/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/img/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Buka halaman dashboard",
+      "url": "/?page=dashboard",
+      "icons": [{ "src": "assets/img/logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Buat Transaksi",
+      "short_name": "Invoice",
+      "description": "Buat transaksi baru",
+      "url": "/?page=invoice",
+      "icons": [{ "src": "assets/img/logo.png", "sizes": "192x192" }]
+    }
+  ]
+}

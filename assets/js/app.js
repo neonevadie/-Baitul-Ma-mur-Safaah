@@ -259,6 +259,7 @@ function applySession(user) {
   navigateTo('dashboard');
   updateDate();
   renderNotifications();
+  renderNotifPermissionBtn();
   showToast(`✅ Selamat datang, ${user.name}!`);
   const btn = document.getElementById('btn-login');
   if (btn) btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Masuk ke Dashboard';
@@ -1226,6 +1227,64 @@ async function hapusUserSales(i) {
   addLog('setting','Hapus akun sales: '+s.name);
 }
 
+// ───────────────────── GANTI PASSWORD IN-APP ─────────────────────
+async function gantiPassword() {
+  const oldPass  = document.getElementById('gp-old')?.value.trim();
+  const newPass  = document.getElementById('gp-new')?.value.trim();
+  const confPass = document.getElementById('gp-confirm')?.value.trim();
+
+  if (!oldPass || !newPass || !confPass) {
+    showToast('❌ Semua field wajib diisi!', 'error'); return;
+  }
+  if (newPass.length < 6) {
+    showToast('❌ Password baru minimal 6 karakter!', 'error'); return;
+  }
+  if (newPass !== confPass) {
+    showToast('❌ Konfirmasi password tidak cocok!', 'error'); return;
+  }
+  if (newPass === oldPass) {
+    showToast('❌ Password baru tidak boleh sama dengan password lama!', 'error'); return;
+  }
+
+  const btn = document.getElementById('btn-ganti-pass');
+  if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...'; btn.disabled = true; }
+
+  try {
+    const fbUser = window.FA.currentUser();
+    if (!fbUser) throw new Error('Sesi tidak ditemukan. Silakan login ulang.');
+
+    // Re-authenticate dulu (wajib untuk operasi sensitif Firebase)
+    await window.FA.reauthenticate(fbUser.email, oldPass);
+
+    // Update password
+    await window.FA.updatePassword(newPass);
+
+    // Clear form
+    ['gp-old','gp-new','gp-confirm'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+
+    showToast('✅ Password berhasil diubah! Silakan login ulang untuk keamanan.', 'success');
+    addLog('setting', 'Ganti password akun: ' + currentUser?.name);
+
+    // Auto logout setelah 3 detik (security best practice)
+    setTimeout(() => doLogout(), 3000);
+
+  } catch(err) {
+    const msgs = {
+      'auth/wrong-password'         : '❌ Password lama salah!',
+      'auth/invalid-credential'     : '❌ Password lama salah!',
+      'auth/too-many-requests'      : '❌ Terlalu banyak percobaan. Tunggu beberapa menit.',
+      'auth/requires-recent-login'  : '❌ Sesi terlalu lama. Logout lalu login ulang dulu.',
+      'auth/network-request-failed' : '❌ Gagal koneksi — cek internet.',
+      'auth/weak-password'          : '❌ Password baru terlalu lemah!',
+    };
+    showToast(msgs[err.code] || ('❌ ' + err.message), 'error');
+  } finally {
+    if (btn) { btn.innerHTML = '<i class="fas fa-key"></i> Ganti Password'; btn.disabled = false; }
+  }
+}
+
 // ───────────────────── CLEAR DATA FUNCTIONS ─────────────────────
 async function clearCollection(colName, label) {
   if (!confirm(`Hapus SEMUA data ${label} dari cloud? Tindakan PERMANEN!`)) return;
@@ -1352,6 +1411,63 @@ function renderNotifications() {
       </div>`).join('');
 }
 
+
+// ───────────────────── BROWSER PUSH NOTIFICATION ────────────────
+let _notifPermission = (typeof Notification !== "undefined") ? Notification.permission : "default";
+
+async function requestNotifPermission() {
+  if (!("Notification" in window)) return false;
+  if (_notifPermission === "granted") return true;
+  try {
+    const result = await Notification.requestPermission();
+    _notifPermission = result;
+    if (result === "granted") {
+      showBrowserNotif("BMS Notifikasi Aktif", "Kamu akan menerima notifikasi stok kritis & invoice jatuh tempo.", "success");
+      addLog("setting", "Aktifkan notifikasi browser");
+    }
+    return result === "granted";
+  } catch(e) { return false; }
+}
+
+function showBrowserNotif(title, body, type, urgent) {
+  if (!("Notification" in window) || _notifPermission !== "granted") return;
+  if (typeof urgent === "undefined") urgent = false;
+  const opts = { body, icon: "assets/img/logo.png", badge: "assets/img/logo.png", tag: "bms-" + (type||"info") + "-" + Date.now(), requireInteraction: urgent, silent: !urgent };
+  if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+    navigator.serviceWorker.ready.then(reg => reg.showNotification(title, opts)).catch(() => { try { new Notification(title, opts); } catch(e){} });
+  } else { try { new Notification(title, opts); } catch(e){} }
+}
+
+function checkAndPushBrowserNotif() {
+  if (_notifPermission !== "granted") return;
+  const today = new Date().toISOString().slice(0, 10);
+  DB.barang.filter(b => b.stok <= b.minStok && b.stok > 0).forEach(b => {
+    const key = "notif_stok_" + b.kode + "_" + today;
+    if (!sessionStorage.getItem(key)) { showBrowserNotif("Stok Kritis: " + b.nama, "Sisa " + b.stok + " " + b.satuan + " — di bawah minimum (" + b.minStok + ")", "danger", true); sessionStorage.setItem(key, "1"); }
+  });
+  DB.barang.filter(b => b.stok <= 0).forEach(b => {
+    const key = "notif_habis_" + b.kode + "_" + today;
+    if (!sessionStorage.getItem(key)) { showBrowserNotif("Stok Habis: " + b.nama, "Produk ini tidak bisa dijual sampai stok diisi ulang.", "danger", true); sessionStorage.setItem(key, "1"); }
+  });
+  DB.invoice.filter(inv => inv.status !== "Lunas" && inv.tempo === today).forEach(inv => {
+    const key = "notif_tempo_" + inv.no;
+    if (!sessionStorage.getItem(key)) { showBrowserNotif("Invoice Jatuh Tempo: " + inv.no, inv.mitra + " — Rp " + (inv.total||0).toLocaleString("id-ID") + " jatuh tempo hari ini!", "warning", true); sessionStorage.setItem(key, "1"); }
+  });
+}
+
+function renderNotifPermissionBtn() {
+  const el = document.getElementById("notif-permission-btn");
+  if (!el) return;
+  if (!("Notification" in window)) { el.style.display = "none"; return; }
+  if (_notifPermission === "granted") {
+    el.innerHTML = "<i class="fas fa-bell"></i> Notifikasi Browser Aktif";
+    el.style.opacity = "0.55"; el.style.cursor = "default"; el.onclick = null;
+  } else {
+    el.innerHTML = "<i class="fas fa-bell"></i> Aktifkan Notifikasi Browser";
+    el.style.opacity = "1"; el.style.cursor = "pointer";
+    el.onclick = async () => { await requestNotifPermission(); renderNotifPermissionBtn(); };
+  }
+}
 async function bacaNotif(i) {
   const n = DB.notifikasi[i];
   if (!n) return;
@@ -1777,16 +1893,127 @@ function previewInvoice() {
 
 function showInvoicePreview(i) {
   const inv = DB.invoice[i];
+  const co  = appConfig?.company || {};
+  const nama    = co.nama    || "CV. Baitul Ma'mur Syafaah";
+  const alamat  = co.alamat  || 'Ruko Villa Bogor Indah 5, Bogor, Jawa Barat';
+  const telp    = co.telp    || '(0251) 8xxx-xxxx';
+  const email   = co.email   || 'info@bms-syafaah.id';
+  const npwp    = co.npwp    || '-';
+  const rek     = co.rekening|| 'BCA 123-456-7890 a/n Baitul Mamur Syafaah';
+
+  const badgeMetode = inv.metodeBayar === 'Tunai' ? '#16a34a' : inv.metodeBayar === 'Transfer' ? '#2563a8' : '#d97706';
+  const badgeStatus = inv.status === 'Lunas' ? '#16a34a' : inv.status === 'Jatuh Tempo' ? '#dc2626' : '#d97706';
+
+  const itemsHtml = inv.items
+    ? `<table class="invoice-table">
+        <thead><tr>
+          <th style="width:32px">No</th><th>Nama Barang</th><th>Satuan</th>
+          <th style="text-align:right">Qty</th>
+          <th style="text-align:right">Harga Satuan</th>
+          <th style="text-align:right">Total</th>
+        </tr></thead>
+        <tbody>${inv.items.filter(Boolean).map((it,j)=>`
+          <tr>
+            <td>${j+1}</td><td>${it.nama}</td><td>${it.satuan}</td>
+            <td style="text-align:right">${it.qty}</td>
+            <td style="text-align:right">Rp ${(it.harga||0).toLocaleString('id-ID')}</td>
+            <td style="text-align:right"><strong>Rp ${(it.total||0).toLocaleString('id-ID')}</strong></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`
+    : `<div style="padding:20px;text-align:center;color:#666;font-style:italic">Detail item tidak tersedia</div>`;
+
+  const subtotal   = inv.items ? inv.items.filter(Boolean).reduce((s,it)=>s+(it.total||0),0) : inv.total;
+  const diskon     = inv.diskon || 0;
+  const afterD     = subtotal * (1 - diskon/100);
+  const ppn        = afterD * 0.11;
+
   document.getElementById('invoice-preview-content').innerHTML = `
     <div class="invoice-header">
-      <div class="invoice-company"><h2>Baitul Ma'mur Syafaah</h2><p>Distributor Sembako · Bogor</p></div>
-      <div class="invoice-meta"><h1>INVOICE</h1><p>No: <strong>${inv.no}</strong></p><p>Tgl: ${inv.tgl}</p></div>
+      <div class="invoice-company">
+        <h2>${nama}</h2>
+        <p>${alamat}<br>
+        Telp: ${telp}&nbsp;&nbsp;|&nbsp;&nbsp;Email: ${email}<br>
+        NPWP: ${npwp}</p>
+      </div>
+      <div class="invoice-meta">
+        <h1>INVOICE</h1>
+        <p>No: <strong>${inv.no}</strong></p>
+        <p>Tanggal: <strong>${inv.tgl}</strong></p>
+        <p>Jatuh Tempo: <strong>${inv.metodeBayar === 'Tempo' ? inv.tempo : '-'}</strong></p>
+        <p style="margin-top:6px">
+          <span style="background:${badgeMetode};color:#fff;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700">${inv.metodeBayar||'Tempo'}</span>
+          &nbsp;
+          <span style="background:${badgeStatus};color:#fff;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700">${inv.status}</span>
+        </p>
+      </div>
     </div>
-    <div class="invoice-to"><h4>Kepada</h4><p><strong>${inv.mitra}</strong></p></div>
-    ${inv.items?`<table class="invoice-table"><thead><tr><th>No</th><th>Barang</th><th>Sat</th><th>Qty</th><th>Harga</th><th>Total</th></tr></thead><tbody>${inv.items.filter(Boolean).map((it,j)=>`<tr><td>${j+1}</td><td>${it.nama}</td><td>${it.satuan}</td><td>${it.qty}</td><td>Rp ${it.harga.toLocaleString('id-ID')}</td><td>Rp ${it.total.toLocaleString('id-ID')}</td></tr>`).join('')}</tbody></table>`:`<div style="padding:20px;text-align:center;color:var(--text-muted)">Rp ${inv.total.toLocaleString('id-ID')}</div>`}
-    <div class="invoice-totals"><table><tr class="total-row"><td>TOTAL</td><td>Rp ${inv.total.toLocaleString('id-ID')}</td></tr></table></div>
-    <div class="invoice-footer"><p>Status: <strong>${inv.status}</strong> · Jatuh Tempo: ${inv.tempo}</p></div>`;
+
+    <div class="invoice-to">
+      <h4>Kepada Yth.</h4>
+      <p><strong>${inv.mitra}</strong></p>
+      ${inv.salesName ? `<p style="font-size:11px;color:#666;margin-top:2px">Sales: ${inv.salesName}</p>` : ''}
+    </div>
+
+    ${itemsHtml}
+
+    <div class="invoice-totals">
+      <table>
+        <tr><td>Subtotal</td><td style="text-align:right">Rp ${subtotal.toLocaleString('id-ID')}</td></tr>
+        ${diskon > 0 ? `<tr><td>Diskon (${diskon}%)</td><td style="text-align:right;color:#dc2626">- Rp ${Math.round(subtotal*diskon/100).toLocaleString('id-ID')}</td></tr>` : ''}
+        <tr><td>PPN 11%</td><td style="text-align:right">Rp ${Math.round(ppn).toLocaleString('id-ID')}</td></tr>
+        <tr class="total-row"><td>TOTAL</td><td style="text-align:right">Rp ${(inv.total||0).toLocaleString('id-ID')}</td></tr>
+      </table>
+    </div>
+
+    <div class="invoice-footer">
+      <p>Pembayaran ke: <strong>${rek}</strong></p>
+      <p>Terima kasih telah berbelanja di <strong>${nama}</strong>. Harap konfirmasi pembayaran setelah transfer.</p>
+    </div>
+
+    <div class="invoice-sign-area">
+      <div class="sign-box">
+        <span class="sign-line"></span>
+        <strong>Disiapkan Oleh</strong>
+        <p>${inv.salesName || 'Sales / Admin'}</p>
+      </div>
+      <div class="sign-box">
+        <span class="sign-line"></span>
+        <strong>Diterima Oleh</strong>
+        <p>( Pelanggan )</p>
+      </div>
+      <div class="sign-box">
+        <span class="sign-line"></span>
+        <strong>Mengetahui</strong>
+        <p>( Pimpinan )</p>
+      </div>
+    </div>`;
+
+  // Wrap untuk @print — hanya invoice-preview-content yang tercetak
+  let wrapper = document.getElementById('print-invoice-wrapper');
+  if (!wrapper) {
+    wrapper = document.createElement('div');
+    wrapper.id = 'print-invoice-wrapper';
+    wrapper.style.cssText = 'display:none;position:fixed;top:0;left:0;width:100%;z-index:99999;background:#fff';
+    document.body.appendChild(wrapper);
+  }
+  wrapper.innerHTML = `<div class="invoice-preview">${document.getElementById('invoice-preview-content').innerHTML}</div>`;
+
   openModal('modal-preview-inv');
+}
+
+function printInvoice() {
+  // Tampilkan wrapper, print, sembunyikan kembali
+  const wrapper = document.getElementById('print-invoice-wrapper');
+  if (wrapper) {
+    wrapper.style.display = 'block';
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => { wrapper.style.display = 'none'; }, 1000);
+    }, 200);
+  } else {
+    window.print();
+  }
 }
 
 // ───────────────────── MITRA CRUD ───────────────────────────────
@@ -2180,4 +2407,5 @@ function renderAll() {
   if (currentUser) applyRoleRestrictions(currentUser.role);
   // Cek & push notif stok kritis ke Firestore (async, tidak blocking)
   checkStokKritisNotif().then(() => renderNotifications()).catch(() => renderNotifications());
+  checkAndPushBrowserNotif();
 }

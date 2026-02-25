@@ -12,7 +12,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
-  createUserWithEmailAndPassword
+  createUserWithEmailAndPassword, EmailAuthProvider,
+  reauthenticateWithCredential, updatePassword
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const firebaseConfig = {
@@ -66,6 +67,19 @@ window.FA = {
       await deleteApp(app2);
       return uid;
     } catch(e) { await deleteApp(app2).catch(()=>{}); throw e; }
+  },
+  // Re-authenticate (wajib sebelum ganti password)
+  reauthenticate: async (email, pw) => {
+    const user = auth.currentUser;
+    if (!user) throw new Error('Tidak ada user aktif');
+    const credential = EmailAuthProvider.credential(email, pw);
+    return reauthenticateWithCredential(user, credential);
+  },
+  // Update password (requires reauthenticate first)
+  updatePassword: (newPw) => {
+    const user = auth.currentUser;
+    if (!user) throw new Error('Tidak ada user aktif');
+    return updatePassword(user, newPw);
   },
 };
 

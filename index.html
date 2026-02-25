@@ -19,15 +19,18 @@
 <!-- ===== NOTIF PANEL ===== -->
 <div class="notif-panel" id="notif-panel">
   <div class="notif-header">
-    <h4>🔔 Notifikasi</h4>
-    <button class="btn btn-sm btn-outline" onclick="markAllRead()">Tandai Dibaca</button>
+    <h4>🔔 Notifikasi <span id="notif-count-badge" style="font-size:11px;font-weight:700;background:var(--danger);color:#fff;padding:2px 7px;border-radius:20px;margin-left:6px"></span></h4>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="btn btn-sm btn-outline" onclick="markAllRead()" style="font-size:11px;padding:4px 10px">✅ Baca Semua</button>
+      <button onclick="toggleNotif()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px;padding:2px 4px">✕</button>
+    </div>
   </div>
   <div class="notif-list" id="notif-list"></div>
 </div>
 
 <!-- ===== LIVE CHAT ===== -->
-<button class="chat-fab" onclick="toggleChat()" id="chat-fab">
-  <i class="fas fa-comment-dots"></i>
+<button class="chat-fab" onclick="toggleChat()" id="chat-fab" title="Live Chat Tim">
+  <i class="fas fa-comments"></i>
   <div class="chat-badge" id="chat-unread-badge" style="display:none">!</div>
 </button>
 <div class="chat-window" id="chat-window">
@@ -58,17 +61,24 @@
 </div>
 
 <!-- ===== LOGIN PAGE ===== -->
+<!-- Sidebar overlay (mobile) -->
+<div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
 <div id="login-page" style="display:flex">
   <div class="login-orbs"><div class="orb orb1"></div><div class="orb orb2"></div><div class="orb orb3"></div></div>
   <div class="login-grid-pattern"></div>
   <div class="login-box">
     <div class="login-brand">
       <div class="login-logo-wrap">
-        <img src="assets/img/logo.png" alt="BMS" class="login-logo-img" onerror="this.style.display='none';document.getElementById('login-text-brand').style.display='block'">
-        <div id="login-text-brand" style="display:none;font-family:'Syne',sans-serif;font-size:42px;color:#fff;font-weight:900;letter-spacing:-2px">BMS</div>
+        <!-- Jika logo.png ada, tampil logo saja. Jika tidak ada, tampil teks BMS -->
+        <img src="assets/img/logo.png" alt="BMS" class="login-logo-img"
+          onerror="this.style.display='none'; document.getElementById('login-fallback-brand').style.display='flex'">
       </div>
-      <div class="brand-name">BMS</div>
-      <div class="brand-sub">Baitul Ma'mur Syafaah · Sistem Manajemen Bisnis</div>
+      <!-- Fallback: tampil hanya jika logo.png gagal load -->
+      <div id="login-fallback-brand" style="display:none;flex-direction:column;align-items:center;gap:4px">
+        <div style="font-family:'Syne',sans-serif;font-size:48px;color:#fff;font-weight:900;letter-spacing:-2px;line-height:1">BMS</div>
+      </div>
+      <div class="brand-sub" style="margin-top:10px">Baitul Ma'mur Syafaah · Sistem Manajemen Bisnis</div>
     </div>
 
     <p style="color:rgba(255,255,255,0.55);font-size:12.5px;margin-bottom:12px;text-align:center">Pilih peran Anda:</p>
@@ -122,7 +132,13 @@
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
       <div class="sb-brand">
-        <div class="sb-icon"><i class="fas fa-store"></i></div>
+        <!-- Logo BMS di sidebar — fallback ke icon jika logo.png tidak ada -->
+        <div class="sb-icon" id="sb-logo-wrap" style="overflow:hidden;padding:0">
+          <img src="assets/img/logo.png" alt="BMS"
+            style="width:42px;height:42px;object-fit:contain;border-radius:13px"
+            onerror="this.style.display='none';document.getElementById('sb-logo-fallback').style.display='flex'">
+          <div id="sb-logo-fallback" style="display:none;width:42px;height:42px;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:14px;font-weight:900;color:#fff;letter-spacing:-0.5px">BMS</div>
+        </div>
         <div class="sb-brand-text">
           <h2>BMS</h2>
           <p>BAITUL MA'MUR SYAFAAH</p>
@@ -162,7 +178,7 @@
         <button class="btn-theme" id="theme-toggle-btn" onclick="toggleTheme()" title="Ganti Tema"><i class="fas fa-moon"></i></button>
         <button class="topbar-btn" onclick="syncData()" title="Sinkronisasi"><i class="fas fa-rotate" id="sync-icon"></i></button>
         <button class="topbar-btn" onclick="toggleNotif()" title="Notifikasi">
-          <i class="fas fa-bell"></i><div class="dot dot-red" id="notif-dot" style="display:none"></div>
+          <i class="fas fa-bell"></i><div class="dot dot-red notif-count" id="notif-dot" style="display:none"></div>
         </button>
       </div>
     </div>
@@ -273,21 +289,28 @@
         </div>
       </div>
 
-      <!-- ===== INVOICE ===== -->
+      <!-- ===== TRANSAKSI ===== -->
       <div class="page" id="page-invoice">
         <div class="actions-bar">
           <div class="actions-left">
-            <div class="search-bar"><i class="fas fa-search"></i><input type="text" id="search-invoice" placeholder="Cari invoice..."></div>
+            <div class="search-bar"><i class="fas fa-search"></i><input type="text" id="search-invoice" placeholder="Cari no transaksi, mitra, sales..."></div>
           </div>
           <div style="display:flex;gap:10px">
             <button class="btn btn-outline btn-sm" onclick="exportCSV('invoice')"><i class="fas fa-download"></i> Export</button>
-            <button class="btn btn-primary" onclick="openModal('modal-invoice')"><i class="fas fa-plus"></i> Buat Invoice</button>
+            <button class="btn btn-primary" onclick="openModal('modal-invoice')"><i class="fas fa-plus"></i> Buat Transaksi</button>
           </div>
+        </div>
+        <!-- Ringkasan status transaksi -->
+        <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+          <div class="kpi-mini" style="flex:1;min-width:140px"><h4>Total Transaksi</h4><div class="amount" id="trx-total-count" style="color:var(--primary-light)">0</div></div>
+          <div class="kpi-mini" style="flex:1;min-width:140px"><h4>Sudah Lunas</h4><div class="amount" id="trx-lunas" style="color:var(--accent2)">Rp 0</div></div>
+          <div class="kpi-mini" style="flex:1;min-width:140px"><h4>Belum Lunas</h4><div class="amount" id="trx-belum" style="color:var(--danger)">Rp 0</div></div>
+          <div class="kpi-mini" style="flex:1;min-width:140px"><h4>Tunai / Transfer</h4><div class="amount" id="trx-cash" style="color:var(--accent)">Rp 0</div></div>
         </div>
         <div class="card">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>No Invoice</th><th>Tgl</th><th>Mitra</th><th>Sales</th><th>Total</th><th>Status</th><th>Jatuh Tempo</th><th>Aksi</th></tr></thead>
+              <thead><tr><th>No Transaksi</th><th>Tgl</th><th>Mitra</th><th>Sales</th><th>Total</th><th>Metode Bayar</th><th>Status</th><th>Jatuh Tempo</th><th>Aksi</th></tr></thead>
               <tbody id="tbody-invoice"></tbody>
             </table>
           </div>
@@ -471,9 +494,12 @@
         <div class="card">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Kode</th><th>Nama Barang</th><th>Satuan</th><th>Stok Sistem</th><th>Stok Aktual</th><th>Selisih</th><th>Status</th><th>Catatan</th></tr></thead>
+              <thead><tr><th>Kode</th><th>Nama Barang</th><th>Satuan</th><th>Stok Sistem</th><th>Stok Aktual</th><th>Selisih</th><th>Status</th><th>Catatan</th><th>Aksi</th></tr></thead>
               <tbody id="opname-table-body"></tbody>
             </table>
+          </div>
+          <div style="padding:16px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--border)">
+            <button class="btn btn-primary" onclick="simpanSemuaOpname()"><i class="fas fa-save"></i> Simpan Semua Opname</button>
           </div>
         </div>
       </div>
@@ -532,6 +558,25 @@
           </div>
         </div>
 
+        <!-- Manajemen Kategori -->
+        <div class="card settings-section">
+          <div class="card-header"><h3><i class="fas fa-tags" style="color:var(--accent)"></i> Manajemen Kategori Barang</h3></div>
+          <div class="card-body">
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Kelola kategori yang tersedia saat tambah atau edit barang. Kategori default tidak bisa dihapus.</p>
+            <div id="settings-kategori-list" style="margin-bottom:16px"></div>
+            <hr style="border-color:var(--border);margin-bottom:16px">
+            <h4 style="font-size:13px;font-weight:700;margin-bottom:10px">➕ Tambah Kategori Baru</h4>
+            <div style="display:flex;gap:10px;align-items:flex-end">
+              <div class="field" style="flex:1;margin-bottom:0">
+                <input type="text" id="new-kategori-nama" placeholder="Contoh: Produk Segar, Frozen Food..." style="width:100%">
+              </div>
+              <button class="btn btn-success" onclick="tambahKategori()" style="flex-shrink:0">
+                <i class="fas fa-plus"></i> Tambah
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Backup & Restore -->
         <div class="card settings-section">
           <div class="card-header"><h3><i class="fas fa-database" style="color:var(--purple)"></i> Backup & Restore Data</h3></div>
@@ -580,24 +625,95 @@
       <!-- ===== TUTORIAL ===== -->
       <div class="page" id="page-tutorial">
         <div class="section-header">
-          <div class="section-title">📚 Panduan & Deploy</div>
-          <div class="section-sub">Cara menggunakan dan mengembangkan BMS</div>
+          <div class="section-title">📖 Panduan Penggunaan BMS</div>
+          <div class="section-sub">Cara menggunakan sistem manajemen bisnis CV. Baitul Ma'mur Syafaah</div>
         </div>
-        <div class="dashboard-grid">
+
+        <!-- Memulai -->
+        <div class="dashboard-grid" style="margin-bottom:20px">
           <div class="card">
-            <div class="card-header"><h3>🚀 Update ke GitHub</h3></div>
+            <div class="card-header"><h3>🔐 Cara Login</h3></div>
             <div class="card-body">
-              <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Edit File</h4><p>Edit <code>index.html</code>, <code>style.css</code>, atau <code>app.js</code> di folder <code>D:\bms\</code></p></div></div>
-              <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Push ke GitHub</h4><p><code>git add .</code> → <code>git commit -m "update"</code> → <code>git push</code></p></div></div>
-              <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Live dalam 1-2 Menit</h4><p>GitHub Pages auto-deploy. Buka <a href="https://neonevadie.github.io/-Baitul-Ma-mur-Safaah/" target="_blank">neonevadie.github.io/-Baitul-Ma-mur-Safaah/</a></p></div></div>
+              <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Buka Aplikasi</h4><p>Akses BMS melalui browser di <strong>neonevadie.github.io/-Baitul-Ma-mur-Safaah/</strong></p></div></div>
+              <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Pilih Role</h4><p>Pilih role Anda: <strong>Owner</strong>, <strong>Admin</strong>, atau <strong>Sales</strong> di halaman login</p></div></div>
+              <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Masukkan Password</h4><p>Gunakan email &amp; password yang sudah dibuat oleh Owner. Hubungi Owner jika lupa password.</p></div></div>
             </div>
           </div>
           <div class="card">
-            <div class="card-header"><h3>🔥 Firebase Setup</h3></div>
+            <div class="card-header"><h3>🛒 Membuat Transaksi / Invoice</h3></div>
             <div class="card-body">
-              <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Firestore Rules</h4><p>Koleksi <code>test</code> = bebas, koleksi lain = wajib login (sesuai screenshot Firebase)</p></div></div>
-              <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Firebase Auth</h4><p>Aktifkan <strong>Email/Password</strong> di Authentication → Sign-in method</p></div></div>
-              <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Buat User Owner</h4><p>Firebase Console → Authentication → Add User → <code>owner@bms-syafaah.id</code></p></div></div>
+              <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Buka Menu Transaksi</h4><p>Klik <strong>Transaksi</strong> di sidebar kiri, lalu klik tombol <strong>+ Buat Invoice</strong></p></div></div>
+              <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Isi Data Transaksi</h4><p>Pilih mitra (pelanggan), tambahkan barang, pilih metode bayar: <strong>Tunai / Transfer / Tempo</strong></p></div></div>
+              <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Simpan &amp; Cetak</h4><p>Klik <strong>Simpan</strong> — stok otomatis berkurang. Klik ikon print untuk cetak nota.</p></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stok & Barang -->
+        <div class="dashboard-grid" style="margin-bottom:20px">
+          <div class="card">
+            <div class="card-header"><h3>📦 Kelola Data Barang</h3></div>
+            <div class="card-body">
+              <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Tambah Barang Baru</h4><p>Menu <strong>Data Bisnis → Data Barang</strong>, klik <strong>+ Tambah Barang</strong>. Isi kode, nama, harga beli/jual, stok awal.</p></div></div>
+              <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Edit / Hapus Barang</h4><p>Klik ikon ✏️ untuk edit, 🗑️ untuk hapus. Pastikan stok tidak 0 sebelum transaksi.</p></div></div>
+              <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Pantau Stok Kritis</h4><p>Barang dengan stok di bawah <strong>Min. Stok</strong> akan muncul notifikasi ⚠️ otomatis di Dashboard.</p></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>📋 Stock Opname</h3></div>
+            <div class="card-body">
+              <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Buka Stock Opname</h4><p>Menu <strong>Stock Opname</strong> — dilakukan rutin (mingguan/bulanan) untuk cek fisik gudang</p></div></div>
+              <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Isi Stok Aktual</h4><p>Isi kolom <strong>Stok Aktual</strong> sesuai hitungan fisik. Selisih dan status akan otomatis terhitung.</p></div></div>
+              <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Simpan &amp; Export</h4><p>Klik <strong>Simpan Opname</strong> untuk update stok sistem, atau <strong>Generate CSV</strong> untuk laporan.</p></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Keuangan & Laporan -->
+        <div class="dashboard-grid" style="margin-bottom:20px">
+          <div class="card">
+            <div class="card-header"><h3>💰 Pencatatan Keuangan</h3></div>
+            <div class="card-body">
+              <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Catat Pengeluaran</h4><p>Menu <strong>Keuangan</strong> → tab Pengeluaran. Isi tanggal, keterangan, kategori, dan jumlah.</p></div></div>
+              <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Catat Pembelian Stok</h4><p>Tab <strong>Pembelian</strong> untuk mencatat pembelian barang dari supplier — stok otomatis bertambah.</p></div></div>
+              <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Lihat Laporan</h4><p>Menu <strong>Laporan &amp; Analitik</strong> untuk melihat grafik penjualan, margin, dan perputaran stok.</p></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>👥 Mitra &amp; Pengguna</h3></div>
+            <div class="card-body">
+              <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Tambah Mitra Bisnis</h4><p>Menu <strong>Data Bisnis → Mitra Bisnis</strong>. Pilih tipe: <strong>Pelanggan</strong> atau <strong>Pemasok</strong>.</p></div></div>
+              <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Kelola Akun Sales</h4><p>Menu <strong>Pengaturan → Manajemen Pengguna</strong>. Isi nama, email, dan password untuk buat akun sales baru.</p></div></div>
+              <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Gunakan Live Chat</h4><p>Klik ikon 💬 di pojok kanan bawah untuk berkomunikasi real-time dengan seluruh tim.</p></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tips Hak Akses -->
+        <div class="card">
+          <div class="card-header"><h3>💡 Tips &amp; Informasi Hak Akses</h3></div>
+          <div class="card-body">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+              <div style="background:rgba(255,255,255,0.04);border-radius:12px;padding:16px;border:1px solid var(--border)">
+                <div style="font-size:20px;margin-bottom:8px">👑</div>
+                <strong style="color:var(--accent)">Owner</strong>
+                <p style="font-size:12px;color:var(--text-muted);margin-top:6px">Akses penuh semua menu: transaksi, barang, keuangan, laporan, pengaturan, log aktivitas, dan panduan.</p>
+              </div>
+              <div style="background:rgba(255,255,255,0.04);border-radius:12px;padding:16px;border:1px solid var(--border)">
+                <div style="font-size:20px;margin-bottom:8px">🛠️</div>
+                <strong style="color:var(--accent2)">Admin</strong>
+                <p style="font-size:12px;color:var(--text-muted);margin-top:6px">Akses transaksi, barang, mitra, keuangan, laporan, opname, dan pengaturan. Tidak bisa lihat log.</p>
+              </div>
+              <div style="background:rgba(255,255,255,0.04);border-radius:12px;padding:16px;border:1px solid var(--border)">
+                <div style="font-size:20px;margin-bottom:8px">📊</div>
+                <strong style="color:#7c3aed">Sales</strong>
+                <p style="font-size:12px;color:var(--text-muted);margin-top:6px">Akses dashboard, stok, transaksi, mitra, dan dashboard performa sales pribadi.</p>
+              </div>
+              <div style="background:rgba(255,255,255,0.04);border-radius:12px;padding:16px;border:1px solid var(--border)">
+                <div style="font-size:20px;margin-bottom:8px">📞</div>
+                <strong>Butuh Bantuan?</strong>
+                <p style="font-size:12px;color:var(--text-muted);margin-top:6px">Hubungi Owner BMS melalui Live Chat internal (ikon 💬) atau WhatsApp untuk kendala teknis.</p>
+              </div>
             </div>
           </div>
         </div>
@@ -632,6 +748,7 @@
             <option>Gula & Pemanis</option><option>Bumbu & Rempah</option>
             <option>Minuman</option><option>Snack & Camilan</option><option>Lainnya</option>
           </select>
+          <!-- Options diperbarui otomatis oleh updateKategoriDropdowns() -->
         </div>
         <div class="field"><label>Satuan</label>
           <select id="b-satuan"><option>Karung</option><option>Dus</option><option>Karton</option><option>Pcs</option><option>Kg</option><option>Liter</option></select>
@@ -664,28 +781,91 @@
   </div>
 </div>
 
+<!-- ===== MODAL: EDIT BARANG ===== -->
+<div class="modal-overlay" id="modal-edit-barang">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="fas fa-edit" style="color:var(--accent)"></i> Edit Barang</h3>
+      <button class="modal-close" onclick="closeModal('modal-edit-barang')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="eb-idx">
+      <div class="form-row">
+        <div class="field"><label>Kode Barang *</label><input type="text" id="eb-kode" placeholder="BRS-001"></div>
+        <div class="field"><label>Nama Barang *</label><input type="text" id="eb-nama" placeholder="Beras Premium 5kg"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Kategori</label>
+          <select id="eb-kategori"></select>
+        </div>
+        <div class="field"><label>Satuan</label>
+          <select id="eb-satuan"><option>Karung</option><option>Dus</option><option>Karton</option><option>Pcs</option><option>Kg</option><option>Liter</option></select>
+        </div>
+      </div>
+      <div class="form-row cols-3">
+        <div class="field"><label>Stok Saat Ini</label><input type="number" id="eb-stok" min="0"></div>
+        <div class="field"><label>Harga Beli</label><input type="number" id="eb-hbeli" min="0"></div>
+        <div class="field"><label>Harga Jual</label><input type="number" id="eb-hjual" min="0"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Min. Stok (alert)</label><input type="number" id="eb-minstock" min="0"></div>
+        <div class="field"><label>Lokasi Rak</label><input type="text" id="eb-lokasi" placeholder="Rak A-1"></div>
+      </div>
+      <div class="field">
+        <label>Ganti Foto (opsional — kosongkan untuk pakai foto lama)</label>
+        <div class="upload-area" onclick="document.getElementById('eb-foto-input').click()">
+          <i class="fas fa-camera"></i>
+          <p>Klik untuk ganti foto <strong>(.jpg, .png)</strong></p>
+        </div>
+        <input type="file" id="eb-foto-input" accept="image/*" multiple style="display:none">
+        <div class="upload-preview" id="eb-foto-preview" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-edit-barang')">Batal</button>
+      <button class="btn btn-primary" onclick="simpanEditBarang()"><i class="fas fa-save"></i> Simpan Perubahan</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL: BUAT INVOICE ===== -->
 <div class="modal-overlay" id="modal-invoice">
   <div class="modal modal-lg">
     <div class="modal-header">
-      <h3><i class="fas fa-file-invoice" style="color:var(--accent)"></i> Buat Invoice</h3>
+      <h3><i class="fas fa-receipt" style="color:var(--accent)"></i> Buat Transaksi</h3>
       <button class="modal-close" onclick="closeModal('modal-invoice')"><i class="fas fa-times"></i></button>
     </div>
     <div class="modal-body">
       <div class="form-row">
-        <div class="field"><label>No Invoice</label><input type="text" id="inv-no" readonly style="background:var(--bg)"></div>
+        <div class="field"><label>No Transaksi</label><input type="text" id="inv-no" readonly style="background:var(--bg)"></div>
         <div class="field"><label>Mitra / Pelanggan *</label>
           <select id="inv-mitra"><option value="">Pilih Mitra...</option></select>
         </div>
       </div>
       <div class="form-row">
         <div class="field"><label>Tanggal</label><input type="date" id="inv-tgl"></div>
-        <div class="field"><label>Jatuh Tempo</label><input type="date" id="inv-tempo"></div>
+        <div class="field">
+          <label>Metode Pembayaran *</label>
+          <select id="inv-bayar" onchange="toggleTempoField(this.value)" style="border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:14px;width:100%;background:var(--surface)">
+            <option value="Tunai">💵 Tunai (Langsung Lunas)</option>
+            <option value="Transfer">🏦 Transfer Bank (Langsung Lunas)</option>
+            <option value="Tempo">📅 Tempo / Kredit (Jatuh Tempo)</option>
+          </select>
+        </div>
+      </div>
+      <!-- Field jatuh tempo — hanya muncul jika Tempo -->
+      <div class="form-row" id="tempo-row" style="display:none">
+        <div class="field"><label>Tanggal Jatuh Tempo</label><input type="date" id="inv-tempo"></div>
+        <div class="field" style="display:flex;align-items:flex-end">
+          <div style="background:rgba(245,158,11,0.08);border:1px solid var(--accent);border-radius:10px;padding:10px 14px;font-size:12.5px;color:var(--accent);width:100%">
+            ⚠️ Status akan <strong>Belum Lunas</strong> hingga dikonfirmasi manual
+          </div>
+        </div>
       </div>
       <div class="field">
         <label>Item Barang</label>
         <table style="width:100%;margin-bottom:8px">
-          <thead><tr style="background:var(--bg)"><th style="padding:8px;text-align:left;font-size:12px">Barang</th><th>Qty</th><th>Satuan</th><th>Harga</th><th>Total</th><th></th></tr></thead>
+          <thead><tr style="background:var(--bg)"><th style="padding:8px;text-align:left;font-size:12px">Barang</th><th>Qty</th><th>Satuan</th><th>Harga</th><th>Stok</th><th>Total</th><th></th></tr></thead>
           <tbody id="inv-items"></tbody>
         </table>
         <button class="btn btn-outline btn-sm" onclick="addInvItem()"><i class="fas fa-plus"></i> Tambah Item</button>
@@ -705,7 +885,7 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-invoice')">Batal</button>
       <button class="btn btn-accent" onclick="previewInvoice()"><i class="fas fa-eye"></i> Preview</button>
-      <button class="btn btn-primary" onclick="simpanInvoice()"><i class="fas fa-save"></i> Simpan Invoice</button>
+      <button class="btn btn-primary" onclick="simpanInvoice()"><i class="fas fa-save"></i> Simpan Transaksi</button>
     </div>
   </div>
 </div>

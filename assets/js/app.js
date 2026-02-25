@@ -287,8 +287,13 @@ async function loadAppConfig() {
     window.FS.onSnapshot(window.FS.docRef('test','appConfig'), docSnap => {
       if (docSnap.exists()) {
         appConfig = docSnap.data();
+        // Selalu update dropdown sales di halaman login
         renderSalesDropdown();
-        if (currentUser) renderSettings();
+        // Update halaman settings hanya jika sudah login & halaman settings sedang aktif
+        if (currentUser) {
+          renderUsersList();
+          if (isPageActive('settings')) renderSettings();
+        }
       }
     });
   } catch(e) {

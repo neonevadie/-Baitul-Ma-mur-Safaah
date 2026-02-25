@@ -472,14 +472,6 @@ function initData() {
   document.getElementById('inv-no').value = `TRX-${new Date().getFullYear()}-${invCounter}`;
 }
 
-function renderAll() {
-  renderBarang(); renderInvoice(); renderStok();
-  renderMitra(); renderPengeluaran(); renderPembelian();
-  renderStokKritis(); buildMainChart(); fillDropdowns();
-  updateRunningText();
-  if (currentUser) applyRoleRestrictions(currentUser.role);
-}
-
 // ───────────────────── FIRESTORE LOAD ───────────────────────────
 async function loadAllFromFirestore() {
   const { FS } = window;
@@ -1519,10 +1511,10 @@ function renderNotifPermissionBtn() {
   if (!el) return;
   if (!("Notification" in window)) { el.style.display = "none"; return; }
   if (_notifPermission === "granted") {
-    el.innerHTML = "<i class="fas fa-bell"></i> Notifikasi Browser Aktif";
+    el.innerHTML = '<i class="fas fa-bell"></i> Notifikasi Browser Aktif';
     el.style.opacity = "0.55"; el.style.cursor = "default"; el.onclick = null;
   } else {
-    el.innerHTML = "<i class="fas fa-bell"></i> Aktifkan Notifikasi Browser";
+    el.innerHTML = '<i class="fas fa-bell"></i> Aktifkan Notifikasi Browser';
     el.style.opacity = "1"; el.style.cursor = "pointer";
     el.onclick = async () => { await requestNotifPermission(); renderNotifPermissionBtn(); };
   }
@@ -1559,16 +1551,6 @@ function toggleNotif() {
   const panel = document.getElementById('notif-panel');
   panel.classList.toggle('open');
   if (panel.classList.contains('open')) renderNotifications();
-}
-function toggleSidebar() {
-  const sb = document.getElementById('sidebar');
-  const ov = document.getElementById('sidebar-overlay');
-  sb.classList.toggle('mobile-open');
-  ov.classList.toggle('show', sb.classList.contains('mobile-open'));
-}
-function closeSidebar() {
-  document.getElementById('sidebar').classList.remove('mobile-open');
-  document.getElementById('sidebar-overlay').classList.remove('show');
 }
 
 // ───────────────────── SYNC ──────────────────────────────────────

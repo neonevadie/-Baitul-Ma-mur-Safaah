@@ -283,21 +283,28 @@
         </div>
       </div>
 
-      <!-- ===== INVOICE ===== -->
+      <!-- ===== TRANSAKSI ===== -->
       <div class="page" id="page-invoice">
         <div class="actions-bar">
           <div class="actions-left">
-            <div class="search-bar"><i class="fas fa-search"></i><input type="text" id="search-invoice" placeholder="Cari invoice..."></div>
+            <div class="search-bar"><i class="fas fa-search"></i><input type="text" id="search-invoice" placeholder="Cari no transaksi, mitra, sales..."></div>
           </div>
           <div style="display:flex;gap:10px">
             <button class="btn btn-outline btn-sm" onclick="exportCSV('invoice')"><i class="fas fa-download"></i> Export</button>
-            <button class="btn btn-primary" onclick="openModal('modal-invoice')"><i class="fas fa-plus"></i> Buat Invoice</button>
+            <button class="btn btn-primary" onclick="openModal('modal-invoice')"><i class="fas fa-plus"></i> Buat Transaksi</button>
           </div>
+        </div>
+        <!-- Ringkasan status transaksi -->
+        <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+          <div class="kpi-mini" style="flex:1;min-width:140px"><h4>Total Transaksi</h4><div class="amount" id="trx-total-count" style="color:var(--primary-light)">0</div></div>
+          <div class="kpi-mini" style="flex:1;min-width:140px"><h4>Sudah Lunas</h4><div class="amount" id="trx-lunas" style="color:var(--accent2)">Rp 0</div></div>
+          <div class="kpi-mini" style="flex:1;min-width:140px"><h4>Belum Lunas</h4><div class="amount" id="trx-belum" style="color:var(--danger)">Rp 0</div></div>
+          <div class="kpi-mini" style="flex:1;min-width:140px"><h4>Tunai / Transfer</h4><div class="amount" id="trx-cash" style="color:var(--accent)">Rp 0</div></div>
         </div>
         <div class="card">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>No Invoice</th><th>Tgl</th><th>Mitra</th><th>Sales</th><th>Total</th><th>Status</th><th>Jatuh Tempo</th><th>Aksi</th></tr></thead>
+              <thead><tr><th>No Transaksi</th><th>Tgl</th><th>Mitra</th><th>Sales</th><th>Total</th><th>Metode Bayar</th><th>Status</th><th>Jatuh Tempo</th><th>Aksi</th></tr></thead>
               <tbody id="tbody-invoice"></tbody>
             </table>
           </div>
@@ -542,6 +549,25 @@
           </div>
         </div>
 
+        <!-- Manajemen Kategori -->
+        <div class="card settings-section">
+          <div class="card-header"><h3><i class="fas fa-tags" style="color:var(--accent)"></i> Manajemen Kategori Barang</h3></div>
+          <div class="card-body">
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Kelola kategori yang tersedia saat tambah atau edit barang. Kategori default tidak bisa dihapus.</p>
+            <div id="settings-kategori-list" style="margin-bottom:16px"></div>
+            <hr style="border-color:var(--border);margin-bottom:16px">
+            <h4 style="font-size:13px;font-weight:700;margin-bottom:10px">➕ Tambah Kategori Baru</h4>
+            <div style="display:flex;gap:10px;align-items:flex-end">
+              <div class="field" style="flex:1;margin-bottom:0">
+                <input type="text" id="new-kategori-nama" placeholder="Contoh: Produk Segar, Frozen Food..." style="width:100%">
+              </div>
+              <button class="btn btn-success" onclick="tambahKategori()" style="flex-shrink:0">
+                <i class="fas fa-plus"></i> Tambah
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Backup & Restore -->
         <div class="card settings-section">
           <div class="card-header"><h3><i class="fas fa-database" style="color:var(--purple)"></i> Backup & Restore Data</h3></div>
@@ -642,6 +668,7 @@
             <option>Gula & Pemanis</option><option>Bumbu & Rempah</option>
             <option>Minuman</option><option>Snack & Camilan</option><option>Lainnya</option>
           </select>
+          <!-- Options diperbarui otomatis oleh updateKategoriDropdowns() -->
         </div>
         <div class="field"><label>Satuan</label>
           <select id="b-satuan"><option>Karung</option><option>Dus</option><option>Karton</option><option>Pcs</option><option>Kg</option><option>Liter</option></select>
@@ -674,28 +701,91 @@
   </div>
 </div>
 
+<!-- ===== MODAL: EDIT BARANG ===== -->
+<div class="modal-overlay" id="modal-edit-barang">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="fas fa-edit" style="color:var(--accent)"></i> Edit Barang</h3>
+      <button class="modal-close" onclick="closeModal('modal-edit-barang')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="eb-idx">
+      <div class="form-row">
+        <div class="field"><label>Kode Barang *</label><input type="text" id="eb-kode" placeholder="BRS-001"></div>
+        <div class="field"><label>Nama Barang *</label><input type="text" id="eb-nama" placeholder="Beras Premium 5kg"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Kategori</label>
+          <select id="eb-kategori"></select>
+        </div>
+        <div class="field"><label>Satuan</label>
+          <select id="eb-satuan"><option>Karung</option><option>Dus</option><option>Karton</option><option>Pcs</option><option>Kg</option><option>Liter</option></select>
+        </div>
+      </div>
+      <div class="form-row cols-3">
+        <div class="field"><label>Stok Saat Ini</label><input type="number" id="eb-stok" min="0"></div>
+        <div class="field"><label>Harga Beli</label><input type="number" id="eb-hbeli" min="0"></div>
+        <div class="field"><label>Harga Jual</label><input type="number" id="eb-hjual" min="0"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Min. Stok (alert)</label><input type="number" id="eb-minstock" min="0"></div>
+        <div class="field"><label>Lokasi Rak</label><input type="text" id="eb-lokasi" placeholder="Rak A-1"></div>
+      </div>
+      <div class="field">
+        <label>Ganti Foto (opsional — kosongkan untuk pakai foto lama)</label>
+        <div class="upload-area" onclick="document.getElementById('eb-foto-input').click()">
+          <i class="fas fa-camera"></i>
+          <p>Klik untuk ganti foto <strong>(.jpg, .png)</strong></p>
+        </div>
+        <input type="file" id="eb-foto-input" accept="image/*" multiple style="display:none">
+        <div class="upload-preview" id="eb-foto-preview" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-edit-barang')">Batal</button>
+      <button class="btn btn-primary" onclick="simpanEditBarang()"><i class="fas fa-save"></i> Simpan Perubahan</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL: BUAT INVOICE ===== -->
 <div class="modal-overlay" id="modal-invoice">
   <div class="modal modal-lg">
     <div class="modal-header">
-      <h3><i class="fas fa-file-invoice" style="color:var(--accent)"></i> Buat Invoice</h3>
+      <h3><i class="fas fa-receipt" style="color:var(--accent)"></i> Buat Transaksi</h3>
       <button class="modal-close" onclick="closeModal('modal-invoice')"><i class="fas fa-times"></i></button>
     </div>
     <div class="modal-body">
       <div class="form-row">
-        <div class="field"><label>No Invoice</label><input type="text" id="inv-no" readonly style="background:var(--bg)"></div>
+        <div class="field"><label>No Transaksi</label><input type="text" id="inv-no" readonly style="background:var(--bg)"></div>
         <div class="field"><label>Mitra / Pelanggan *</label>
           <select id="inv-mitra"><option value="">Pilih Mitra...</option></select>
         </div>
       </div>
       <div class="form-row">
         <div class="field"><label>Tanggal</label><input type="date" id="inv-tgl"></div>
-        <div class="field"><label>Jatuh Tempo</label><input type="date" id="inv-tempo"></div>
+        <div class="field">
+          <label>Metode Pembayaran *</label>
+          <select id="inv-bayar" onchange="toggleTempoField(this.value)" style="border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:14px;width:100%;background:var(--surface)">
+            <option value="Tunai">💵 Tunai (Langsung Lunas)</option>
+            <option value="Transfer">🏦 Transfer Bank (Langsung Lunas)</option>
+            <option value="Tempo">📅 Tempo / Kredit (Jatuh Tempo)</option>
+          </select>
+        </div>
+      </div>
+      <!-- Field jatuh tempo — hanya muncul jika Tempo -->
+      <div class="form-row" id="tempo-row" style="display:none">
+        <div class="field"><label>Tanggal Jatuh Tempo</label><input type="date" id="inv-tempo"></div>
+        <div class="field" style="display:flex;align-items:flex-end">
+          <div style="background:rgba(245,158,11,0.08);border:1px solid var(--accent);border-radius:10px;padding:10px 14px;font-size:12.5px;color:var(--accent);width:100%">
+            ⚠️ Status akan <strong>Belum Lunas</strong> hingga dikonfirmasi manual
+          </div>
+        </div>
       </div>
       <div class="field">
         <label>Item Barang</label>
         <table style="width:100%;margin-bottom:8px">
-          <thead><tr style="background:var(--bg)"><th style="padding:8px;text-align:left;font-size:12px">Barang</th><th>Qty</th><th>Satuan</th><th>Harga</th><th>Total</th><th></th></tr></thead>
+          <thead><tr style="background:var(--bg)"><th style="padding:8px;text-align:left;font-size:12px">Barang</th><th>Qty</th><th>Satuan</th><th>Harga</th><th>Stok</th><th>Total</th><th></th></tr></thead>
           <tbody id="inv-items"></tbody>
         </table>
         <button class="btn btn-outline btn-sm" onclick="addInvItem()"><i class="fas fa-plus"></i> Tambah Item</button>
@@ -715,7 +805,7 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-invoice')">Batal</button>
       <button class="btn btn-accent" onclick="previewInvoice()"><i class="fas fa-eye"></i> Preview</button>
-      <button class="btn btn-primary" onclick="simpanInvoice()"><i class="fas fa-save"></i> Simpan Invoice</button>
+      <button class="btn btn-primary" onclick="simpanInvoice()"><i class="fas fa-save"></i> Simpan Transaksi</button>
     </div>
   </div>
 </div>

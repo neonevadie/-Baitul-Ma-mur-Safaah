@@ -89,7 +89,31 @@ let openGroups = new Set(['g-data']);
 // ───────────────────── CURRENCY HELPER ──────────────────────────
 // fmtRp(n) — Rp 384.000 | Rp 1.500.000  (konsisten seluruh app)
 function fmtRp(n) {
-  return 'Rp\u00A0' + (Number(n)||0).toLocaleString('id-ID');
+  return 'Rp ' + (Number(n)||0).toLocaleString('id-ID');
+}
+
+// ───────────────────── TERBILANG ────────────────────────────────
+// terbilang(n) — "Satu Juta Lima Ratus Ribu Rupiah"
+function terbilang(angka) {
+  const satuan = ['','Satu','Dua','Tiga','Empat','Lima','Enam','Tujuh','Delapan','Sembilan',
+    'Sepuluh','Sebelas','Dua Belas','Tiga Belas','Empat Belas','Lima Belas','Enam Belas',
+    'Tujuh Belas','Delapan Belas','Sembilan Belas'];
+  const puluhan = ['','','Dua Puluh','Tiga Puluh','Empat Puluh','Lima Puluh',
+    'Enam Puluh','Tujuh Puluh','Delapan Puluh','Sembilan Puluh'];
+  function baca(n) {
+    if (n < 20) return satuan[n];
+    if (n < 100) return puluhan[Math.floor(n/10)] + (n%10 ? ' ' + satuan[n%10] : '');
+    if (n < 200) return 'Seratus' + (n%100 ? ' ' + baca(n%100) : '');
+    if (n < 1000) return satuan[Math.floor(n/100)] + ' Ratus' + (n%100 ? ' ' + baca(n%100) : '');
+    if (n < 2000) return 'Seribu' + (n%1000 ? ' ' + baca(n%1000) : '');
+    if (n < 1000000) return baca(Math.floor(n/1000)) + ' Ribu' + (n%1000 ? ' ' + baca(n%1000) : '');
+    if (n < 1000000000) return baca(Math.floor(n/1000000)) + ' Juta' + (n%1000000 ? ' ' + baca(n%1000000) : '');
+    if (n < 1000000000000) return baca(Math.floor(n/1000000000)) + ' Miliar' + (n%1000000000 ? ' ' + baca(n%1000000000) : '');
+    return n.toString();
+  }
+  const n = Math.round(Number(angka) || 0);
+  if (n === 0) return 'Nol Rupiah';
+  return baca(n) + ' Rupiah';
 }
 
 // ───────────────────── STATE ────────────────────────────────────
@@ -259,6 +283,14 @@ async function loadAppConfig() {
       };
     }
     renderSalesDropdown();
+    // Realtime listener untuk appConfig — agar daftar sales selalu update tanpa refresh
+    window.FS.onSnapshot(window.FS.docRef('test','appConfig'), docSnap => {
+      if (docSnap.exists()) {
+        appConfig = docSnap.data();
+        renderSalesDropdown();
+        if (currentUser) renderSettings();
+      }
+    });
   } catch(e) {
     console.warn('appConfig load failed:', e);
     // Fallback default agar login tetap bisa berjalan walau Firestore error
@@ -653,10 +685,10 @@ async function loadAllFromFirestore() {
 function setupRealtimeListeners() {
   const { FS } = window;
   FS.onSnapshot(FS.query(FS.col('barang'),     FS.orderBy('_ts','desc')), s => {
-    if(!s.empty) { DB.barang=s.docs.map(d=>({_id:d.id,...d.data()})); renderBarang(); renderStok(); renderStokKritis(); fillDropdowns(); buildMainChart(); updateRunningText(); }
+    if(!s.empty) { DB.barang=s.docs.map(d=>({_id:d.id,...d.data()})); renderBarang(); renderStok(); renderStokKritis(); fillDropdowns(); buildMainChart(); updateRunningText(); renderDashboardStats(); }
   });
   FS.onSnapshot(FS.query(FS.col('invoice'),    FS.orderBy('_ts','desc')), s => {
-    if(!s.empty) { DB.invoice=s.docs.map(d=>({_id:d.id,...d.data()})); renderInvoice(); buildMainChart(); }
+    if(!s.empty) { DB.invoice=s.docs.map(d=>({_id:d.id,...d.data()})); renderInvoice(); renderInvoiceStats(); renderDashboardStats(); buildMainChart(); if(isPageActive('laporan')) buildLaporanChart(); }
   });
   FS.onSnapshot(FS.query(FS.col('mitra'),      FS.orderBy('_ts','desc')), s => {
     if(!s.empty) { DB.mitra=s.docs.map(d=>({_id:d.id,...d.data()})); renderMitra(); fillDropdowns(); }
@@ -1045,6 +1077,33 @@ function buildLaporanChart() {
   const totalEl = document.getElementById('laporan-total-year');
   const filterNote = hasDateFilter ? ' (filter aktif)' : '';
   if (totalEl) totalEl.textContent = 'Total ' + year + filterNote + ': Rp ' + totalYear.toLocaleString('id-ID') + ' Jt';
+  renderLaporanPiutang();
+}
+
+// Render tabel piutang di halaman laporan
+function renderLaporanPiutang() {
+  const tbody = document.getElementById('lap-piutang-tbody');
+  const totalEl = document.getElementById('lap-piutang-total');
+  if (!tbody) return;
+  const belumLunas = DB.invoice.filter(i => i.status !== 'Lunas');
+  const totalPiutang = belumLunas.reduce((s, i) => s + (i.total || 0), 0);
+  if (totalEl) totalEl.textContent = 'Total Piutang: ' + fmtRp(totalPiutang);
+  if (belumLunas.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px">✅ Semua invoice sudah lunas</td></tr>';
+    return;
+  }
+  tbody.innerHTML = belumLunas.map(inv => {
+    const today = new Date().toISOString().slice(0,10);
+    const isJatuhTempo = inv.tempo && inv.tempo !== '-' && inv.tempo < today;
+    return `<tr>
+      <td><strong>${inv.no}</strong></td>
+      <td>${inv.mitra}</td>
+      <td>${inv.tgl}</td>
+      <td style="color:${isJatuhTempo ? 'var(--danger)' : 'inherit'}">${inv.tempo !== '-' ? inv.tempo : '-'}${isJatuhTempo ? ' ⚠️' : ''}</td>
+      <td style="color:var(--danger);font-weight:700">${fmtRp(inv.total || 0)}</td>
+      <td>${inv.salesName || '-'}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ───────────────────── SALES DASHBOARD ──────────────────────────
@@ -2164,6 +2223,14 @@ async function simpanInvoice() {
         b.keluar = newKeluar;
       }
     }
+    // Update piutang mitra jika metode Tempo (Belum Lunas)
+    if (status === 'Belum Lunas' && mitra) {
+      const m = DB.mitra.find(m => m.nama === mitra);
+      if (m) {
+        m.piutang = (m.piutang || 0) + total;
+        if (m._id) window.FS.updateDoc(window.FS.docRef('mitra', m._id), { piutang: m.piutang }).catch(() => {});
+      }
+    }
     addLog('invoice','Buat '+data.no+' ('+metodeBayar+') — Rp '+total.toLocaleString('id-ID'));
     showToast('✅ Transaksi tersimpan! Status: '+status);
   } catch(e) {
@@ -2188,12 +2255,37 @@ async function simpanInvoice() {
 
 async function tandaiLunas(i) {
   const inv = DB.invoice[i];
+  if (!inv) return;
+  const prevStatus = inv.status;
+  const updates = { status: 'Lunas', tglLunas: new Date().toISOString().slice(0,10) };
   if (inv._id) {
-    try { await window.FS.updateDoc(window.FS.docRef('invoice',inv._id),{status:'Lunas'}); }
-    catch(e) { inv.status='Lunas'; renderInvoice(); }
-  } else { inv.status='Lunas'; renderInvoice(); }
-  addLog('invoice','Tandai lunas: '+inv.no);
-  showToast('✅ Invoice ditandai Lunas!');
+    try {
+      await window.FS.updateDoc(window.FS.docRef('invoice', inv._id), updates);
+      Object.assign(inv, updates);
+    } catch(e) {
+      Object.assign(inv, updates);
+    }
+  } else {
+    Object.assign(inv, updates);
+  }
+  // Update piutang mitra jika sebelumnya Belum Lunas
+  if (prevStatus !== 'Lunas' && inv.mitra) {
+    const m = DB.mitra.find(m => m.nama === inv.mitra);
+    if (m) {
+      const bayar = inv.total || 0;
+      m.piutang = Math.max(0, (m.piutang || 0) - bayar);
+      if (m._id) {
+        window.FS.updateDoc(window.FS.docRef('mitra', m._id), { piutang: m.piutang }).catch(() => {});
+      }
+    }
+  }
+  renderInvoice();
+  renderInvoiceStats();
+  renderMitra();
+  renderDashboardStats();
+  if (isPageActive('laporan')) buildLaporanChart();
+  addLog('invoice', 'Tandai lunas: ' + inv.no);
+  showToast('✅ Invoice ' + inv.no + ' ditandai Lunas!');
 }
 
 function editInvoice(i) {
@@ -2272,6 +2364,10 @@ function previewInvoice() {
       <tr class="total-row"><td>TOTAL</td><td style="text-align:right">Rp ${Math.round(total).toLocaleString('id-ID')}</td></tr>
     </table></div>
     ${catatan ? `<div class="invoice-catatan"><strong>Catatan:</strong> ${catatan}</div>` : ''}
+    <div class="invoice-terbilang" style="border:1px solid #e2e8f0;border-radius:8px;padding:10px 16px;margin:12px 0;background:#f8fafc">
+      <span style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Terbilang:</span>
+      <p style="font-size:12.5px;font-style:italic;margin:4px 0 0;color:#1e293b;font-weight:600"># ${terbilang(Math.round(total))} #</p>
+    </div>
     <div class="invoice-footer">
       <p>Terima kasih atas kepercayaan Anda berbelanja di ${co.nama||"Baitul Ma'mur Syafaah"}</p>
       <p>Pembayaran: ${co.rekening||'BCA 123-456-7890 a/n Baitul Mamur Syafaah'}</p>
@@ -2356,6 +2452,11 @@ function showInvoicePreview(i) {
     </div>
 
     ${inv.catatan ? `<div class="invoice-catatan"><strong>Catatan:</strong> ${inv.catatan}</div>` : ''}
+
+    <div class="invoice-terbilang" style="border:1px solid #e2e8f0;border-radius:8px;padding:10px 16px;margin:12px 0;background:#f8fafc">
+      <span style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Terbilang:</span>
+      <p style="font-size:12.5px;font-style:italic;margin:4px 0 0;color:#1e293b;font-weight:600"># ${terbilang(inv.total || 0)} #</p>
+    </div>
 
     <div class="invoice-footer">
       <p>Pembayaran ke: <strong>${rek}</strong></p>

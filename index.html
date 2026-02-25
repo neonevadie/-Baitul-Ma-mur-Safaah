@@ -543,6 +543,19 @@
           </div>
           <div class="card-body" id="laporan-distribusi"></div>
         </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3><i class="fas fa-file-invoice-dollar" style="color:var(--accent)"></i> Data Piutang (Invoice Belum Lunas)</h3>
+            <span id="lap-piutang-total" style="font-size:13px;color:var(--danger);font-weight:700"></span>
+          </div>
+          <div class="card-body" style="overflow-x:auto">
+            <table class="data-table" id="lap-piutang-table">
+              <thead><tr><th>No Invoice</th><th>Mitra</th><th>Tanggal</th><th>Jatuh Tempo</th><th>Total</th><th>Sales</th></tr></thead>
+              <tbody id="lap-piutang-tbody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <!-- ===== SALES DASHBOARD ===== -->

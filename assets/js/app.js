@@ -3022,61 +3022,89 @@ async function updateSJField(id, field, value) {
 }
 
 function printSuratJalan(id) {
-  console.log('Start print surat jalan untuk ID:', id);
+  console.log('Start print surat jalan ID:', id);
 
+  // Buka modal/preview dulu
   openPreviewSuratJalan(id);
 
-  // Gunakan interval untuk deteksi ketika modal terbuka dan konten ada
-  const interval = setInterval(() => {
-    // Selector lebih spesifik berdasarkan screenshot kamu: cari container dengan teks 'SURAT JALAN' atau 'Kepada Yth'
-    const sjModalContent = document.querySelector('.modal-content') ||  // kalau pakai Bootstrap atau modal class
-                           document.querySelector('div:contains("SURAT JALAN")') ||  // pseudo, ganti dengan actual
-                           document.querySelector('[class*="preview"]') ||  // kalau ada class preview
-                           document.querySelector('.sj-print-area');  // fallback ke class lama
+  // Interval untuk menunggu modal terbuka dan konten ada (dari screenshot, cari teks unik)
+  const checkModal = setInterval(() => {
+    // Selector prioritas berdasarkan screenshot kamu
+    const modalContainer = document.querySelector('.modal-body') ||  // umum untuk Bootstrap/custom modal
+                           document.querySelector('.modal-content') ||
+                           document.querySelector('div:contains("SURAT JALAN")')?.closest('.modal') ||
+                           document.querySelector('.sj-print-area') ||  // fallback
+                           document.querySelector('.preview-container');  // kalau ada class preview
 
-    if (sjModalContent && sjModalContent.innerHTML.includes('SURAT JALAN') && sjModalContent.querySelector('table')) {
-      clearInterval(interval);
+    if (modalContainer && 
+        modalContainer.innerHTML.includes('SURAT JALAN') && 
+        modalContainer.querySelector('table') && 
+        modalContainer.querySelector('table tr')) {  // pastikan tabel punya row
 
-      console.log('Modal surat jalan terdeteksi, siap print. Panjang konten:', sjModalContent.innerHTML.length);
+      clearInterval(checkModal);
+      console.log('Modal surat jalan siap! Panjang konten:', modalContainer.innerHTML.length);
 
-      // Buka window baru
-      const printWin = window.open('', '_blank');
-      if (!printWin) {
-        alert('Izinkan popup untuk print surat jalan!');
+      // Buka popup baru khusus print
+      const printPopup = window.open('', '_blank', 'width=1100,height=900,scrollbars=yes,resizable=yes');
+      if (!printPopup) {
+        alert('Izinkan popup di browser untuk cetak surat jalan!');
         return;
       }
 
-      printWin.document.write(`
+      printPopup.document.write(`
         <!DOCTYPE html>
         <html lang="id">
         <head>
           <meta charset="UTF-8">
-          <title>Surat Jalan - BMS</title>
+          <title>Surat Jalan ${id || ''} - CV. Baitul Ma'mur Syafaah</title>
           <link rel="stylesheet" href="assets/css/style.css">
           <style>
-            body { margin: 0; padding: 1cm; background: white; color: black; font-family: Arial, sans-serif; }
-            .modal-content, .preview-container { display: block !important; visibility: visible !important; opacity: 1 !important; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid black; padding: 8px; }
+            body { 
+              margin: 0; 
+              padding: 1cm; 
+              background: white; 
+              color: black; 
+              font-family: Arial, sans-serif; 
+              min-height: 100vh;
+            }
+            table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+            th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+            .modal-body, .modal-content, .sj-print-area { 
+              display: block !important; 
+              visibility: visible !important; 
+              opacity: 1 !important; 
+              position: static !important; 
+              transform: none !important;
+            }
             @media print {
-              body { padding: 1cm !important; }
-              * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+              body { padding: 10mm !important; background: white !important; margin: 0 !important; }
+              * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
             }
           </style>
         </head>
-        <body onload="window.print(); setTimeout(() => window.close(), 6000);">
-          ${sjModalContent.outerHTML}
+        <body onload="window.print(); setTimeout(() => window.close(), 7000);">
+          ${modalContainer.outerHTML}
         </body>
         </html>
       `);
 
-      printWin.document.close();
+      printPopup.document.close();
 
-      console.log('Popup print dibuka');
+      console.log('Popup print surat jalan terbuka – isi harusnya muncul sekarang');
+
+      // Restore invoice kalau perlu (opsional)
+      const invWrapper = document.getElementById('print-invoice-wrapper');
+      if (invWrapper) invWrapper.style.display = '';
+    } else {
+      console.log('Menunggu modal surat jalan lengkap...');
     }
-  }, 700);
+  }, 800);  // cek setiap 0.8 detik
 
-  setTimeout(() => clearInterval(interval), 15000);  // stop kalau gagal
+  // Stop kalau terlalu lama
+  setTimeout(() => {
+    clearInterval(checkModal);
+    console.log('Timeout: modal surat jalan tidak terdeteksi');
+  }, 20000);
 }
 
 function kirimWASuratJalan(id) {

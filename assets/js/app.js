@@ -3022,70 +3022,61 @@ async function updateSJField(id, field, value) {
 }
 
 function printSuratJalan(id) {
-  // Langkah 1: Buka preview dulu (biar user lihat dulu kalau perlu)
+  console.log('Start print surat jalan ID:', id);
+
+  // Buka preview dulu (pastikan user lihat konten di layar)
   openPreviewSuratJalan(id);
 
-  // Langkah 2: Tunggu konten surat jalan benar-benar muncul di layar
-  const waitForContent = setInterval(() => {
-    const sjContainer = document.querySelector('.sj-print-area');
+  // Tunggu sampai konten muncul di layar (gunakan interval agar pintar)
+  const intervalCheck = setInterval(() => {
+    // Selector ini berdasarkan screenshot: cari container dengan teks 'SURAT JALAN' atau class/id yang kamu pakai
+    const sjContainer = document.querySelector('.sj-print-area') || 
+                        document.querySelector('div[style*="Kepada Yth"]')?.closest('div') || 
+                        document.querySelector('.preview-container');  // ganti sesuai HTML kamu
 
-    if (sjContainer && sjContainer.innerHTML.trim() !== '' && !sjContainer.innerHTML.includes('INVOICE')) {
-      clearInterval(waitForContent);
+    if (sjContainer && sjContainer.innerHTML.includes('SURAT JALAN') && sjContainer.querySelector('table')) {
+      clearInterval(intervalCheck);
 
-      // Hide invoice wrapper kalau ada (biar nggak ikut copy)
-      const invWrapper = document.getElementById('print-invoice-wrapper');
-      if (invWrapper) invWrapper.style.display = 'none';
+      console.log('Konten surat jalan ditemukan, siap copy. Panjang HTML:', sjContainer.innerHTML.length);
 
-      // Buka window khusus print surat jalan
-      const printWin = window.open('', '_blank');
-      if (!printWin) {
-        alert('Izinkan popup untuk print surat jalan ya!');
+      // Buat window baru
+      const printWindow = window.open('', '_blank', 'width=1000,height=800,scrollbars=yes');
+      if (!printWindow) {
+        alert('Izinkan popup browser untuk print surat jalan!');
         return;
       }
 
-      printWin.document.write(`
+      printWindow.document.write(`
         <!DOCTYPE html>
         <html lang="id">
         <head>
           <meta charset="UTF-8">
-          <title>Surat Jalan - CV. Baitul Ma'mur Syafaah</title>
+          <title>Surat Jalan No. ${id || 'baru'} - BMS</title>
           <link rel="stylesheet" href="assets/css/style.css">
           <style>
-            body {
-              margin: 0;
-              padding: 15mm;
-              background: white;
-              color: black;
-              font-family: Arial, sans-serif;
-            }
+            body { margin: 0; padding: 1cm; background: white; color: black; font-family: Arial, sans-serif; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid black; padding: 8px; text-align: left; }
             @media print {
-              body { 
-                background: white !important; 
-                color: black !important; 
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
+              body { padding: 1cm !important; background: white !important; }
               * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             }
           </style>
         </head>
-        <body onload="window.print(); setTimeout(() => window.close(), 5000);">
+        <body onload="window.print(); setTimeout(() => window.close(), 6000);">
           ${sjContainer.outerHTML}
         </body>
         </html>
       `);
 
-      printWin.document.close();
+      printWindow.document.close();
 
-      // Restore invoice wrapper kalau perlu
-      if (invWrapper) invWrapper.style.display = '';
-
-      console.log('Surat jalan berhasil di-copy ke window print');
+      console.log('Print window dibuka untuk surat jalan');
     }
-  }, 500);  // Cek setiap 0.5 detik
+  }, 800);  // Cek setiap 0.8 detik
 
-  // Stop cek setelah 10 detik kalau-kalau gagal load
-  setTimeout(() => clearInterval(waitForContent), 10000);
+  // Stop setelah 20 detik kalau gagal
+  setTimeout(() => clearInterval(intervalCheck), 20000);
 }
 
 function kirimWASuratJalan(id) {

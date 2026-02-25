@@ -92,6 +92,21 @@ function fmtRp(n) {
   return 'Rp\u00A0' + (Number(n)||0).toLocaleString('id-ID');
 }
 
+/**
+ * getPPNRate() — baca rate PPN dari checkbox + field di Pengaturan.
+ * Return 0 jika checkbox "Aktifkan PPN" tidak dicentang.
+ * Fallback ke appConfig.ppnRate jika elemen belum tersedia (e.g. load awal).
+ */
+function getPPNRate() {
+  const cbEl   = document.getElementById('set-ppn-aktif');
+  const rateEl = document.getElementById('set-ppn-rate');
+  // Jika checkbox ada dan tidak dicentang → PPN 0%
+  if (cbEl && !cbEl.checked) return 0;
+  // Ambil dari field, fallback ke appConfig, default 11
+  const rate = parseFloat(rateEl?.value ?? appConfig?.ppnRate ?? 11);
+  return isNaN(rate) ? (appConfig?.ppnRate ?? 11) : rate;
+}
+
 // ───────────────────── STATE ────────────────────────────────────
 let currentUser  = null;
 let selectedRole = 'owner';
@@ -1314,6 +1329,9 @@ function renderSettings() {
   safe('set-company-rek',   c.rekening);
   safe('set-bonus-rate', appConfig?.bonusRate||2);
   safe('set-ppn-rate',   appConfig?.ppnRate ?? 11);
+  // Load status checkbox PPN — default true (aktif) jika belum pernah disimpan
+  const cbPpn = document.getElementById('set-ppn-aktif');
+  if (cbPpn) cbPpn.checked = appConfig?.ppnAktif !== false;
   // Load kategori dari appConfig cloud jika ada
   if (appConfig?.kategori?.length) {
     localStorage.setItem('bms_kategori', JSON.stringify(appConfig.kategori));
@@ -1430,10 +1448,12 @@ async function saveCompanyProfile() {
   };
   const bonusRate = parseInt(document.getElementById('set-bonus-rate')?.value)||2;
   const ppnRate   = parseInt(document.getElementById('set-ppn-rate')?.value) ?? 11;
+  const ppnAktif  = document.getElementById('set-ppn-aktif')?.checked !== false;
   if (!appConfig) appConfig = {};
   appConfig.company   = company;
   appConfig.bonusRate = bonusRate;
   appConfig.ppnRate   = ppnRate;
+  appConfig.ppnAktif  = ppnAktif;
   appConfig.kategori  = getKategoriList();
   try {
     await window.FS.setDoc(window.FS.docRef('test','appConfig'), appConfig);
@@ -2015,16 +2035,22 @@ function hitungTotal() {
   const subtotal = items.reduce((s,i)=>s+(i.total||0),0);
   const diskon   = parseFloat(document.getElementById('inv-diskon')?.value)||0;
   const afterD   = subtotal*(1-diskon/100);
-  const ppnRate  = appConfig?.ppnRate ?? 11;
+  const ppnRate  = getPPNRate();
   const ppn      = afterD*(ppnRate/100);
   const total    = afterD+ppn;
   const safe = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
   safe('inv-subtotal', fmtRp(subtotal));
   safe('inv-ppn',      fmtRp(Math.round(ppn)));
   safe('inv-total',    fmtRp(Math.round(total)));
-  // Update label PPN agar menampilkan persentase aktual
+  // Tampilkan/sembunyikan baris PPN sesuai status aktif
+  const ppnRow   = document.getElementById('inv-ppn-row');
   const ppnLabel = document.getElementById('inv-ppn-label');
-  if (ppnLabel) ppnLabel.textContent = `PPN ${ppnRate}%`;
+  if (ppnRate === 0) {
+    if (ppnRow)   ppnRow.style.display   = 'none';
+  } else {
+    if (ppnRow)   ppnRow.style.display   = 'flex';
+    if (ppnLabel) ppnLabel.textContent   = `PPN ${ppnRate}%`;
+  }
 }
 
 async function hapusTransaksi(i) {
@@ -2105,7 +2131,7 @@ async function simpanInvoice() {
   const subtotal   = items.reduce((s,i)=>s+i.total,0);
   const diskon     = parseFloat(document.getElementById('inv-diskon')?.value)||0;
   const afterD     = subtotal*(1-diskon/100);
-  const ppnRate    = appConfig?.ppnRate ?? 11;
+  const ppnRate    = getPPNRate();
   const ppn        = afterD*(ppnRate/100);
   const total      = Math.round(afterD+ppn);
   const metodeBayar = document.getElementById('inv-bayar')?.value || 'Tempo';
@@ -2120,7 +2146,8 @@ async function simpanInvoice() {
     metodeBayar,
     mitra, total, status,
     items, diskon,
-    ppnRate     : appConfig?.ppnRate ?? 11,
+    ppnRate,
+    ppnAktif    : ppnRate > 0,
     catatan     : document.getElementById('inv-catatan')?.value.trim() || '',
     salesName   : currentUser?.name||'',
     salesUid    : currentUser?.uid||'',
@@ -2215,7 +2242,7 @@ function previewInvoice() {
   const subtotal = items.reduce((s,i)=>s+(i.total||0),0);
   const diskon   = parseFloat(document.getElementById('inv-diskon')?.value)||0;
   const afterD   = subtotal*(1-diskon/100);
-  const ppnRate  = appConfig?.ppnRate ?? 11;
+  const ppnRate  = getPPNRate();
   const ppn      = afterD*(ppnRate/100);
   const total    = afterD+ppn;
   const catatan  = document.getElementById('inv-catatan')?.value.trim() || '';
@@ -2243,7 +2270,7 @@ function previewInvoice() {
     <div class="invoice-totals"><table>
       <tr><td>Subtotal</td><td style="text-align:right">Rp ${subtotal.toLocaleString('id-ID')}</td></tr>
       ${diskon>0?`<tr><td>Diskon (${diskon}%)</td><td style="text-align:right;color:var(--danger)">- Rp ${Math.round(subtotal*diskon/100).toLocaleString('id-ID')}</td></tr>`:''}
-      <tr><td>PPN ${ppnRate}%</td><td style="text-align:right">Rp ${Math.round(ppn).toLocaleString('id-ID')}</td></tr>
+      ${ppnRate>0?`<tr><td>PPN ${ppnRate}%</td><td style="text-align:right">Rp ${Math.round(ppn).toLocaleString('id-ID')}</td></tr>`:''}
       <tr class="total-row"><td>TOTAL</td><td style="text-align:right">Rp ${Math.round(total).toLocaleString('id-ID')}</td></tr>
     </table></div>
     ${catatan ? `<div class="invoice-catatan"><strong>Catatan:</strong> ${catatan}</div>` : ''}
@@ -2289,7 +2316,8 @@ function showInvoicePreview(i) {
   const subtotal   = inv.items ? inv.items.filter(Boolean).reduce((s,it)=>s+(it.total||0),0) : inv.total;
   const diskon     = inv.diskon || 0;
   const afterD     = subtotal * (1 - diskon/100);
-  const ppnRate    = inv.ppnRate ?? appConfig?.ppnRate ?? 11;
+  // Gunakan ppnRate yang tersimpan di invoice; jika ppnAktif=false atau ppnRate=0 → tidak tampil
+  const ppnRate    = (inv.ppnAktif === false || inv.ppnRate === 0) ? 0 : (inv.ppnRate ?? appConfig?.ppnRate ?? 11);
   const ppn        = afterD * (ppnRate/100);
 
   document.getElementById('invoice-preview-content').innerHTML = `
@@ -2325,7 +2353,7 @@ function showInvoicePreview(i) {
       <table>
         <tr><td>Subtotal</td><td style="text-align:right">Rp ${subtotal.toLocaleString('id-ID')}</td></tr>
         ${diskon > 0 ? `<tr><td>Diskon (${diskon}%)</td><td style="text-align:right;color:#dc2626">- Rp ${Math.round(subtotal*diskon/100).toLocaleString('id-ID')}</td></tr>` : ''}
-        <tr><td>PPN ${ppnRate}%</td><td style="text-align:right">Rp ${Math.round(ppn).toLocaleString('id-ID')}</td></tr>
+        ${ppnRate > 0 ? `<tr><td>PPN ${ppnRate}%</td><td style="text-align:right">Rp ${Math.round(ppn).toLocaleString('id-ID')}</td></tr>` : ''}
         <tr class="total-row"><td>TOTAL</td><td style="text-align:right">Rp ${(inv.total||0).toLocaleString('id-ID')}</td></tr>
       </table>
     </div>

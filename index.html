@@ -516,23 +516,8 @@
           </div>
         </div>
 
-        <div class="card">
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Kode</th><th>Nama Barang</th><th>Satuan</th>
-                  <th style="text-align:center">Stok Sistem</th>
-                  <th style="text-align:center">Stok Aktual</th>
-                  <th style="text-align:center">Selisih</th>
-                  <th>Status</th><th>Catatan</th>
-                  <th style="text-align:center">Simpan</th>
-                </tr>
-              </thead>
-              <tbody id="opname-table-body"></tbody>
-            </table>
-          </div>
-        </div>
+        <!-- Opname cards container -->
+        <div id="opname-cards"></div>
       </div>
 
       <!-- ===== SETTINGS ===== -->
@@ -653,30 +638,318 @@
         </div>
       </div>
 
-      <!-- ===== TUTORIAL ===== -->
+      <!-- ===== PANDUAN ===== -->
       <div class="page" id="page-tutorial">
-        <div class="section-header">
-          <div class="section-title">📚 Panduan & Deploy</div>
-          <div class="section-sub">Cara menggunakan dan mengembangkan BMS</div>
+        <div class="section-header" style="margin-bottom:20px">
+          <div class="section-title">📖 Panduan Pemakaian BMS</div>
+          <div class="section-sub">Sistem Manajemen Bisnis — CV. Baitul Ma'mur Syafaah</div>
         </div>
-        <div class="dashboard-grid">
-          <div class="card">
-            <div class="card-header"><h3>🚀 Update ke GitHub</h3></div>
-            <div class="card-body">
-              <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Edit File</h4><p>Edit <code>index.html</code>, <code>style.css</code>, atau <code>app.js</code> di folder <code>D:\bms\</code></p></div></div>
-              <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Push ke GitHub</h4><p><code>git add .</code> → <code>git commit -m "update"</code> → <code>git push</code></p></div></div>
-              <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Live dalam 1-2 Menit</h4><p>GitHub Pages auto-deploy. Buka <a href="https://neonevadie.github.io/-Baitul-Ma-mur-Safaah/" target="_blank">neonevadie.github.io/-Baitul-Ma-mur-Safaah/</a></p></div></div>
+
+        <!-- Tab navigasi panduan -->
+        <div class="guide-tabs" id="guide-tabs">
+          <button class="guide-tab active" onclick="switchGuide('login')">🔐 Login</button>
+          <button class="guide-tab" onclick="switchGuide('barang')">📦 Barang</button>
+          <button class="guide-tab" onclick="switchGuide('transaksi')">🧾 Transaksi</button>
+          <button class="guide-tab" onclick="switchGuide('stok')">🏭 Stok</button>
+          <button class="guide-tab" onclick="switchGuide('keuangan')">💰 Keuangan</button>
+          <button class="guide-tab" onclick="switchGuide('opname')">📋 Opname</button>
+          <button class="guide-tab" onclick="switchGuide('pengaturan')">⚙️ Pengaturan</button>
+          <button class="guide-tab" onclick="switchGuide('tips')">💡 Tips</button>
+        </div>
+
+        <!-- ── LOGIN ── -->
+        <div class="guide-panel active" id="guide-login">
+          <div class="guide-banner" style="background:linear-gradient(135deg,#1a3a5c,#2563a8)">
+            <i class="fas fa-sign-in-alt"></i>
+            <div><h3>Login & Hak Akses</h3><p>Sistem memiliki 3 level akses pengguna</p></div>
+          </div>
+          <div class="guide-grid">
+            <div class="card">
+              <div class="card-header"><h3>🔐 Cara Login</h3></div>
+              <div class="card-body">
+                <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Buka Aplikasi</h4><p>Akses BMS melalui browser di HP atau komputer. Disarankan Chrome atau Safari terbaru.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Pilih Role</h4><p>Pilih role Anda: <strong>Owner</strong>, <strong>Admin Keuangan</strong>, atau <strong>Sales</strong>.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Masukkan Email & Password</h4><p>Gunakan email dan password yang telah diberikan administrator. Centang <em>Ingat Saya</em> agar tidak login ulang.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">4</div><div class="step-content"><h4>Masuk Dashboard</h4><p>Setelah berhasil, Anda akan langsung masuk ke Dashboard sesuai role masing-masing.</p></div></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>👥 Hak Akses per Role</h3></div>
+              <div class="card-body">
+                <div class="role-card owner">
+                  <div class="role-icon">👑</div>
+                  <div><strong>Owner / Pemilik</strong>
+                  <p>Akses penuh: semua menu, data keuangan, log aktivitas, manajemen pengguna, pengaturan sistem, dan hapus data.</p></div>
+                </div>
+                <div class="role-card admin">
+                  <div class="role-icon">💼</div>
+                  <div><strong>Admin Keuangan</strong>
+                  <p>Akses: barang, transaksi, stok, mitra, keuangan, laporan, stock opname, pengaturan. <em>Tidak bisa</em> lihat log.</p></div>
+                </div>
+                <div class="role-card sales">
+                  <div class="role-icon">🤝</div>
+                  <div><strong>Sales</strong>
+                  <p>Akses terbatas: buat transaksi, lihat info stok, data mitra. Tidak bisa edit/hapus barang atau lihat keuangan.</p></div>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="card">
-            <div class="card-header"><h3>🔥 Firebase Setup</h3></div>
-            <div class="card-body">
-              <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Firestore Rules</h4><p>Koleksi <code>test</code> = bebas, koleksi lain = wajib login (sesuai screenshot Firebase)</p></div></div>
-              <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Firebase Auth</h4><p>Aktifkan <strong>Email/Password</strong> di Authentication → Sign-in method</p></div></div>
-              <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Buat User Owner</h4><p>Firebase Console → Authentication → Add User → <code>owner@bms-syafaah.id</code></p></div></div>
+        </div>
+
+        <!-- ── DATA BARANG ── -->
+        <div class="guide-panel" id="guide-barang">
+          <div class="guide-banner" style="background:linear-gradient(135deg,#065f46,#059669)">
+            <i class="fas fa-box-open"></i>
+            <div><h3>Data Barang</h3><p>Kelola seluruh produk & inventaris</p></div>
+          </div>
+          <div class="guide-grid">
+            <div class="card">
+              <div class="card-header"><h3>➕ Tambah Barang Baru</h3></div>
+              <div class="card-body">
+                <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Klik "+ Tambah Barang"</h4><p>Tombol biru di pojok kanan atas halaman Data Barang.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Isi Kode & Nama</h4><p>Kode harus unik, contoh: <code>BRS-001</code>. Nama barang harus jelas dan lengkap.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Pilih Kategori & Satuan</h4><p>Pilih sesuai jenis barang. Satuan: Karung, Dus, Karton, Pcs, Kg, Liter.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">4</div><div class="step-content"><h4>Isi Stok, Harga & Min. Stok</h4><p>Stok awal = jumlah fisik saat ini. Min. Stok = batas minimum sebelum muncul peringatan kritis.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">5</div><div class="step-content"><h4>Upload Foto (Opsional)</h4><p>Bisa upload hingga 4 foto. Format JPG/PNG. Membantu identifikasi barang di lapangan.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">6</div><div class="step-content"><h4>Klik "Simpan Barang"</h4><p>Data otomatis tersimpan ke Firebase dan langsung muncul di tabel.</p></div></div>
+                <div class="guide-tip"><span class="guide-tip-icon">💡</span><span>Kode barang tidak bisa duplikat. Gunakan format sistematis seperti <code>KAT-XXX</code> agar mudah dicari.</span></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>✏️ Edit & Hapus Barang</h3></div>
+              <div class="card-body">
+                <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Klik Ikon Edit (✏️)</h4><p>Di kolom Aksi pada baris barang yang ingin diubah. Modal edit akan terbuka dengan data yang sudah terisi.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Ubah Data yang Diperlukan</h4><p>Semua field bisa diubah kecuali kode barang yang sudah dipakai di transaksi.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Klik "Simpan Perubahan"</h4><p>Perubahan tersimpan ke Firebase dan semua halaman terupdate otomatis.</p></div></div>
+                <div class="guide-tip"><span class="guide-tip-icon">⚠️</span><span>Untuk <strong>hapus barang</strong>, klik ikon 🗑️ merah. Tindakan ini permanen dan tidak bisa dibatalkan.</span></div>
+                <hr style="margin:14px 0;border-color:var(--border)">
+                <div class="card-header" style="padding:0 0 10px"><h3>📤 Export CSV</h3></div>
+                <p style="font-size:13px;color:var(--text-muted)">Klik tombol <strong>Export CSV</strong> untuk unduh seluruh data barang dalam format spreadsheet. Bisa dibuka di Excel atau Google Sheets.</p>
+              </div>
             </div>
           </div>
         </div>
+
+        <!-- ── TRANSAKSI ── -->
+        <div class="guide-panel" id="guide-transaksi">
+          <div class="guide-banner" style="background:linear-gradient(135deg,#92400e,#f59e0b)">
+            <i class="fas fa-receipt"></i>
+            <div><h3>Transaksi / Invoice</h3><p>Buat dan kelola transaksi penjualan</p></div>
+          </div>
+          <div class="guide-grid">
+            <div class="card">
+              <div class="card-header"><h3>🧾 Buat Transaksi Baru</h3></div>
+              <div class="card-body">
+                <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Klik "+ Buat Transaksi"</h4><p>Tombol oranye di pojok kanan atas. Nomor transaksi dibuat otomatis (TRX-YYYY-XXXX).</p></div></div>
+                <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Pilih Pelanggan</h4><p>Pilih dari daftar Mitra Bisnis yang sudah terdaftar. Atau ketik langsung nama pelanggan baru.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Pilih Metode Bayar</h4><p><strong>💵 Tunai</strong> = langsung lunas. <strong>🏦 Transfer Bank</strong> = langsung lunas. <strong>📅 Tempo/Kredit</strong> = perlu isi tanggal jatuh tempo.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">4</div><div class="step-content"><h4>Tambah Item Barang</h4><p>Klik "+ Tambah Item", pilih barang dari dropdown (tertera sisa stok). Isi jumlah — sistem otomatis cek apakah stok cukup.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">5</div><div class="step-content"><h4>Cek Subtotal & PPN</h4><p>PPN 11% dihitung otomatis. Total tagihan tampil di bawah tabel item.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">6</div><div class="step-content"><h4>Klik "Simpan Transaksi"</h4><p>Stok barang langsung berkurang sesuai jumlah yang dijual. Transaksi masuk ke daftar.</p></div></div>
+                <div class="guide-tip"><span class="guide-tip-icon">💡</span><span>Jika stok tidak mencukupi, sistem akan memberi peringatan dan <strong>tidak</strong> bisa menyimpan transaksi.</span></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>📊 Status & Manajemen Transaksi</h3></div>
+              <div class="card-body">
+                <div style="margin-bottom:14px">
+                  <p style="font-size:13px;font-weight:700;margin-bottom:8px">Status Transaksi:</p>
+                  <div style="display:flex;flex-direction:column;gap:6px">
+                    <div style="display:flex;align-items:center;gap:8px"><span class="badge badge-green">✅ Lunas</span><span style="font-size:13px">Dibayar tunai/transfer langsung</span></div>
+                    <div style="display:flex;align-items:center;gap:8px"><span class="badge badge-amber">⏰ Jatuh Tempo</span><span style="font-size:13px">Pembayaran tempo, belum lunas</span></div>
+                    <div style="display:flex;align-items:center;gap:8px"><span class="badge badge-red">❌ Belum Lunas</span><span style="font-size:13px">Melewati tanggal jatuh tempo</span></div>
+                  </div>
+                </div>
+                <hr style="margin:12px 0;border-color:var(--border)">
+                <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>KPI Cards</h4><p>Di atas daftar transaksi ada ringkasan: Total Transaksi, Sudah Lunas, Belum Lunas, Pembayaran Tunai/Transfer.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Hapus Transaksi</h4><p>Hanya Owner/Admin yang bisa hapus. Klik ikon 🗑️ di kolom Aksi. Stok <em>tidak</em> dikembalikan otomatis.</p></div></div>
+                <div class="guide-tip"><span class="guide-tip-icon">⚠️</span><span>Transaksi yang sudah disimpan <strong>tidak bisa diubah isinya</strong>. Hapus dan buat ulang jika ada kesalahan.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── STOK ── -->
+        <div class="guide-panel" id="guide-stok">
+          <div class="guide-banner" style="background:linear-gradient(135deg,#1e3a5f,#2563a8)">
+            <i class="fas fa-warehouse"></i>
+            <div><h3>Info Stok</h3><p>Monitor & kelola stok masuk/keluar</p></div>
+          </div>
+          <div class="guide-grid">
+            <div class="card">
+              <div class="card-header"><h3>📥 Stok Masuk (Pembelian)</h3></div>
+              <div class="card-body">
+                <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Klik "+ Stok Masuk"</h4><p>Tombol hijau di halaman Info Stok. Digunakan saat barang baru datang dari supplier.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Pilih Barang & Isi Jumlah</h4><p>Pilih barang dari dropdown, masukkan jumlah yang masuk, dan harga beli per satuan.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Stok Otomatis Bertambah</h4><p>Setelah disimpan, stok barang langsung bertambah dan tercatat di riwayat pembelian.</p></div></div>
+                <div class="guide-tip"><span class="guide-tip-icon">💡</span><span>Selalu catat stok masuk agar laporan keuangan dan stok tetap akurat.</span></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>📊 Monitor Stok</h3></div>
+              <div class="card-body">
+                <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
+                  <div style="display:flex;align-items:center;gap:8px"><span class="badge badge-green">✅ Aman</span><span style="font-size:13px">Stok di atas batas minimum</span></div>
+                  <div style="display:flex;align-items:center;gap:8px"><span class="badge badge-amber">⚠️ Kritis</span><span style="font-size:13px">Stok mendekati/sama dengan min. stok</span></div>
+                  <div style="display:flex;align-items:center;gap:8px"><span class="badge badge-red">⛔ Habis</span><span style="font-size:13px">Stok = 0, segera restock</span></div>
+                </div>
+                <div class="guide-tip"><span class="guide-tip-icon">🔔</span><span>Notifikasi <strong>otomatis muncul</strong> di ikon lonceng saat ada barang kritis. Sistem akan mengingatkan setiap kali data diperbarui.</span></div>
+                <div class="guide-tip"><span class="guide-tip-icon">📊</span><span>Gunakan tombol <strong>Export CSV</strong> untuk unduh laporan stok lengkap dalam format spreadsheet.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── KEUANGAN ── -->
+        <div class="guide-panel" id="guide-keuangan">
+          <div class="guide-banner" style="background:linear-gradient(135deg,#4c1d95,#7c3aed)">
+            <i class="fas fa-chart-line"></i>
+            <div><h3>Keuangan & Laporan</h3><p>Pantau arus kas dan performa bisnis</p></div>
+          </div>
+          <div class="guide-grid">
+            <div class="card">
+              <div class="card-header"><h3>💰 Menu Keuangan</h3></div>
+              <div class="card-body">
+                <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Laporan Laba-Rugi</h4><p>Otomatis dihitung dari selisih pemasukan (transaksi lunas) dan pengeluaran. Update real-time.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Tambah Pengeluaran</h4><p>Klik "+ Pengeluaran", isi kategori (operasional, gaji, dll), jumlah, dan keterangan. Semua tercatat otomatis.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Aset & Pembelian</h4><p>Catat aset perusahaan (kendaraan, peralatan) dan pembelian bahan/produk di bagian bawah halaman.</p></div></div>
+                <div class="guide-tip"><span class="guide-tip-icon">💡</span><span>Hanya Owner dan Admin Keuangan yang bisa mengakses halaman Keuangan.</span></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>📈 Laporan & Analitik</h3></div>
+              <div class="card-body">
+                <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Grafik Penjualan 6 Bulan</h4><p>Visualisasi tren pendapatan dan pengeluaran 6 bulan terakhir. Update otomatis dari data transaksi.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Top 5 Produk Terlaris</h4><p>Ranking barang berdasarkan jumlah terjual. Berguna untuk prioritas restock dan promosi.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Dashboard Sales</h4><p>Performa masing-masing sales: total transaksi, nilai penjualan, dan estimasi komisi/bonus.</p></div></div>
+                <div class="guide-tip"><span class="guide-tip-icon">📋</span><span>Gunakan fitur <strong>Backup Data</strong> di Pengaturan secara rutin untuk keamanan data bisnis Anda.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── STOCK OPNAME ── -->
+        <div class="guide-panel" id="guide-opname">
+          <div class="guide-banner" style="background:linear-gradient(135deg,#164e63,#0891b2)">
+            <i class="fas fa-clipboard-check"></i>
+            <div><h3>Stock Opname</h3><p>Audit stok fisik dan sinkronkan ke sistem</p></div>
+          </div>
+          <div class="guide-grid">
+            <div class="card">
+              <div class="card-header"><h3>📋 Cara Stock Opname</h3></div>
+              <div class="card-body">
+                <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Buka Menu Stock Opname</h4><p>Buka dari menu sidebar. Daftar semua barang otomatis muncul dengan stok sistem terkini.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Hitung Stok Fisik</h4><p>Hitung fisik stok di gudang untuk setiap barang. Lakukan per rak/kategori agar tidak terlewat.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Isi Stok Aktual</h4><p>Ketik jumlah fisik di kolom <strong>Stok Aktual</strong>. Selisih dan Status langsung berubah otomatis.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">4</div><div class="step-content"><h4>Isi Catatan (Opsional)</h4><p>Tambahkan catatan jika ada penjelasan selisih (rusak, hilang, salah hitung sebelumnya).</p></div></div>
+                <div class="tutorial-step"><div class="step-num">5</div><div class="step-content"><h4>Klik Simpan per Baris</h4><p>Klik tombol <strong>💾 Simpan</strong> di setiap baris untuk update stok barang tersebut ke sistem secara permanen.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">6</div><div class="step-content"><h4>Atau Klik "Simpan Semua"</h4><p>Tombol biru di atas untuk simpan semua perubahan sekaligus. Cocok setelah mengisi seluruh daftar.</p></div></div>
+                <div class="guide-tip"><span class="guide-tip-icon">⚠️</span><span>Penyimpanan opname bersifat <strong>permanen</strong>. Stok sistem akan diubah sesuai stok aktual yang Anda masukkan. Pastikan data sudah benar sebelum menyimpan.</span></div>
+                <div class="guide-tip"><span class="guide-tip-icon">📊</span><span>Setelah selesai, klik <strong>Export CSV</strong> untuk dokumentasi laporan opname lengkap dengan kolom selisih dan catatan.</span></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>🔍 Memahami Status Stok</h3></div>
+              <div class="card-body">
+                <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
+                  <div class="status-explain"><span class="badge badge-green" style="min-width:80px;text-align:center">✅ Aman</span><div><strong>Stok di atas batas minimum</strong><p>Tidak perlu tindakan segera. Tetap pantau secara berkala.</p></div></div>
+                  <div class="status-explain"><span class="badge badge-amber" style="min-width:80px;text-align:center">⚠️ Kritis</span><div><strong>Stok mendekati minimum</strong><p>Segera lakukan pembelian/reorder ke supplier sebelum habis.</p></div></div>
+                  <div class="status-explain"><span class="badge badge-red" style="min-width:80px;text-align:center">⛔ Habis</span><div><strong>Stok = 0</strong><p>Barang tidak tersedia. Tidak bisa masuk ke transaksi penjualan.</p></div></div>
+                </div>
+                <div class="guide-tip"><span class="guide-tip-icon">💡</span><span>Batas minimum stok (<em>Min. Stok</em>) diatur per barang di Data Barang → Edit. Sesuaikan dengan rata-rata penjualan harian.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── PENGATURAN ── -->
+        <div class="guide-panel" id="guide-pengaturan">
+          <div class="guide-banner" style="background:linear-gradient(135deg,#374151,#6b7280)">
+            <i class="fas fa-cog"></i>
+            <div><h3>Pengaturan Sistem</h3><p>Kelola profil, pengguna, dan data</p></div>
+          </div>
+          <div class="guide-grid">
+            <div class="card">
+              <div class="card-header"><h3>⚙️ Menu Pengaturan</h3></div>
+              <div class="card-body">
+                <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Profil Perusahaan</h4><p>Isi nama, alamat, telepon, email, NPWP, dan nomor rekening bank perusahaan. Data ini muncul di header invoice.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Tema Tampilan</h4><p>Pilih Mode Terang atau Mode Gelap sesuai preferensi. Bisa juga klik ikon bulan/matahari di topbar.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Manajemen Pengguna</h4><p>Owner bisa tambah akun Sales baru, lihat daftar pengguna aktif, dan mengatur akses. Admin tidak bisa lihat menu ini.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">4</div><div class="step-content"><h4>Manajemen Kategori</h4><p>Tambah atau hapus kategori barang. Kategori default tidak bisa dihapus. Kategori baru langsung muncul di dropdown barang.</p></div></div>
+                <div class="tutorial-step"><div class="step-num">5</div><div class="step-content"><h4>Backup & Restore</h4><p>Klik <strong>Backup JSON</strong> untuk unduh semua data. Simpan di tempat aman. Gunakan <strong>Restore</strong> untuk memulihkan data dari file backup.</p></div></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>⚠️ Danger Zone & Log</h3></div>
+              <div class="card-body">
+                <div class="guide-tip" style="background:rgba(239,68,68,0.08);border-color:rgba(239,68,68,0.2)"><span class="guide-tip-icon">🚨</span><span><strong>Danger Zone</strong> berisi tombol hapus data permanen (invoice, keuangan, barang, log). Tindakan ini <strong>tidak bisa dibatalkan</strong>. Selalu backup dulu sebelum menghapus.</span></div>
+                <hr style="margin:14px 0;border-color:var(--border)">
+                <div class="card-header" style="padding:0 0 10px"><h3>📋 Log Aktivitas</h3></div>
+                <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px">Hanya Owner yang bisa mengakses Log Aktivitas. Berisi rekam jejak semua tindakan pengguna:</p>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div class="guide-tip" style="margin:0"><span class="guide-tip-icon">👁️</span><span>Login, tambah/edit/hapus barang</span></div>
+                  <div class="guide-tip" style="margin:0"><span class="guide-tip-icon">👁️</span><span>Buat transaksi & stock opname</span></div>
+                  <div class="guide-tip" style="margin:0"><span class="guide-tip-icon">👁️</span><span>Perubahan pengaturan & backup</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── TIPS & FAQ ── -->
+        <div class="guide-panel" id="guide-tips">
+          <div class="guide-banner" style="background:linear-gradient(135deg,#831843,#db2777)">
+            <i class="fas fa-lightbulb"></i>
+            <div><h3>Tips, Pintasan & FAQ</h3><p>Gunakan BMS lebih efisien</p></div>
+          </div>
+          <div class="guide-grid">
+            <div class="card">
+              <div class="card-header"><h3>⚡ Pintasan & Fitur Tersembunyi</h3></div>
+              <div class="card-body">
+                <div class="tips-list">
+                  <div class="tip-item"><span class="tip-badge">🔍</span><div><strong>Pencarian Global</strong><p>Gunakan kotak "Cari di BMS..." di topbar. Langsung mencari di semua halaman sekaligus.</p></div></div>
+                  <div class="tip-item"><span class="tip-badge">🌙</span><div><strong>Mode Gelap</strong><p>Klik ikon bulan/matahari di topbar kapan saja. Preferensi disimpan otomatis.</p></div></div>
+                  <div class="tip-item"><span class="tip-badge">🔔</span><div><strong>Notifikasi Real-time</strong><p>Klik ikon lonceng untuk lihat semua notifikasi. Klik satu-satu untuk tandai baca, atau "Baca Semua" untuk sekaligus.</p></div></div>
+                  <div class="tip-item"><span class="tip-badge">☁️</span><div><strong>Tombol Sinkronisasi</strong><p>Klik ikon ↺ di topbar untuk paksa sinkronisasi ulang data dari Firebase jika ada ketidaksesuaian.</p></div></div>
+                  <div class="tip-item"><span class="tip-badge">📱</span><div><strong>Akses dari HP</strong><p>BMS bisa diakses dari HP. Gunakan tombol ☰ di kiri atas untuk buka/tutup menu. Semua fitur sama persis.</p></div></div>
+                  <div class="tip-item"><span class="tip-badge">💬</span><div><strong>Live Chat Tim</strong><p>Klik ikon chat kecil di pojok kanan bawah untuk buka jendela chat internal antar anggota tim yang sedang online.</p></div></div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>❓ FAQ — Pertanyaan Umum</h3></div>
+              <div class="card-body">
+                <div class="faq-list">
+                  <div class="faq-item">
+                    <div class="faq-q">❓ Data saya hilang setelah refresh?</div>
+                    <div class="faq-a">Klik tombol ↺ Sinkronisasi di topbar. Jika masih kosong, kemungkinan Firebase sedang offline. Tunggu beberapa saat dan coba lagi.</div>
+                  </div>
+                  <div class="faq-item">
+                    <div class="faq-q">❓ Tidak bisa login?</div>
+                    <div class="faq-a">Pastikan email dan password benar. Jika lupa password, minta Owner/Admin untuk reset melalui Firebase Console → Authentication.</div>
+                  </div>
+                  <div class="faq-item">
+                    <div class="faq-q">❓ Transaksi gagal disimpan?</div>
+                    <div class="faq-a">Periksa stok barang — sistem mencegah transaksi jika stok tidak mencukupi. Pastikan juga semua field wajib sudah terisi.</div>
+                  </div>
+                  <div class="faq-item">
+                    <div class="faq-q">❓ Foto barang tidak muncul?</div>
+                    <div class="faq-a">Foto disimpan sebagai base64 di Firestore. Ukuran foto terlalu besar bisa menyebabkan gagal upload. Gunakan foto di bawah 2MB.</div>
+                  </div>
+                  <div class="faq-item">
+                    <div class="faq-q">❓ Status KPI di Dashboard tidak update?</div>
+                    <div class="faq-a">Data sudah real-time via Firebase. Jika belum update, tekan tombol Sinkronisasi atau refresh halaman.</div>
+                  </div>
+                  <div class="faq-item">
+                    <div class="faq-q">❓ Menu tertentu tidak muncul?</div>
+                    <div class="faq-a">Akses menu dibatasi sesuai role. Sales tidak bisa lihat Keuangan. Jika butuh akses lebih, hubungi Owner untuk diubah role-nya.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
     </div><!-- /content -->

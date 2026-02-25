@@ -1153,3 +1153,152 @@ body[data-theme="dark"] .chat-fab:hover { background: rgba(37,99,168,0.8); }
   .actions-bar { flex-wrap: wrap; gap: 8px; }
   .actions-bar .btn { font-size: 12px; padding: 8px 12px; }
 }
+
+/* ================================================================
+   BMS v6 — Panduan + Opname Card Layout
+   ================================================================ */
+
+/* ── PANDUAN TABS ─────────────────────────────────────────────── */
+.guide-tabs {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-bottom: 20px;
+}
+.guide-tab {
+  padding: 8px 16px; border-radius: 20px; cursor: pointer;
+  font-size: 13px; font-weight: 600;
+  border: 1.5px solid var(--border);
+  background: var(--bg); color: var(--text-muted);
+  transition: all 0.18s; font-family: inherit;
+}
+.guide-tab:hover  { border-color: var(--primary-light); color: var(--primary-light); }
+.guide-tab.active { background: var(--primary-light); color: #fff; border-color: var(--primary-light); }
+
+/* ── GUIDE PANELS ─────────────────────────────────────────────── */
+.guide-panel { display: none; }
+.guide-panel.active { display: block; }
+
+.guide-banner {
+  display: flex; align-items: center; gap: 16px;
+  padding: 20px 24px; border-radius: 16px; margin-bottom: 20px;
+  color: #fff;
+}
+.guide-banner i { font-size: 32px; opacity: 0.9; flex-shrink: 0; }
+.guide-banner h3 { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+.guide-banner p  { font-size: 13px; opacity: 0.75; }
+
+.guide-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media(max-width:768px) { .guide-grid { grid-template-columns: 1fr; } }
+
+/* ── GUIDE TIPS ───────────────────────────────────────────────── */
+.guide-tip {
+  display: flex; gap: 10px; align-items: flex-start;
+  background: rgba(37,99,168,0.06); border: 1px solid rgba(37,99,168,0.15);
+  border-radius: 10px; padding: 10px 14px;
+  margin-top: 12px; font-size: 13px; line-height: 1.5; color: var(--text);
+}
+.guide-tip-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+
+/* ── ROLE CARDS ───────────────────────────────────────────────── */
+.role-card { display:flex; gap:12px; align-items:flex-start;
+  padding:12px; border-radius:12px; margin-bottom:10px; }
+.role-card.owner { background:rgba(245,158,11,0.08); }
+.role-card.admin { background:rgba(37,99,168,0.08); }
+.role-card.sales { background:rgba(16,185,129,0.08); }
+.role-card strong { display:block; font-size:14px; margin-bottom:4px; }
+.role-card p { font-size:12.5px; color:var(--text-muted); }
+.role-icon { font-size:22px; flex-shrink:0; }
+
+/* ── STATUS EXPLAIN ───────────────────────────────────────────── */
+.status-explain { display:flex; gap:12px; align-items:flex-start; margin-bottom:8px; }
+.status-explain strong { display:block; font-size:13px; }
+.status-explain p { font-size:12px; color:var(--text-muted); margin-top:2px; }
+
+/* ── TIPS LIST ────────────────────────────────────────────────── */
+.tips-list { display:flex; flex-direction:column; gap:12px; }
+.tip-item { display:flex; gap:12px; align-items:flex-start; }
+.tip-badge { font-size:20px; flex-shrink:0; width:32px; text-align:center; }
+.tip-item strong { display:block; font-size:13px; margin-bottom:3px; }
+.tip-item p { font-size:12px; color:var(--text-muted); }
+
+/* ── FAQ LIST ─────────────────────────────────────────────────── */
+.faq-list { display:flex; flex-direction:column; gap:12px; }
+.faq-item { background:var(--bg); border-radius:10px; padding:12px 14px; border:1px solid var(--border); }
+.faq-q { font-size:13px; font-weight:700; color:var(--text); margin-bottom:6px; }
+.faq-a { font-size:12.5px; color:var(--text-muted); line-height:1.5; }
+
+/* ── OPNAME CARDS ─────────────────────────────────────────────── */
+#opname-cards { display:flex; flex-direction:column; gap:12px; }
+
+.opname-card {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.opname-card:hover { border-color: var(--primary-light); box-shadow: 0 2px 16px rgba(37,99,168,0.08); }
+.opname-card.changed { border-color: var(--accent); box-shadow: 0 2px 16px rgba(245,158,11,0.12); }
+
+/* Top row: info + status badge */
+.opname-card-top {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 14px; gap: 12px;
+}
+.opname-card-info { display:flex; flex-direction:column; gap:4px; }
+.op-kode { font-family: monospace; font-size: 12px; color: var(--text-muted);
+  background: var(--bg); padding: 2px 8px; border-radius: 6px; align-self:flex-start; }
+.op-nama { font-size: 15px; font-weight: 700; color: var(--text); }
+.op-satuan { font-size: 12px; color: var(--text-muted); }
+
+/* Mid row: stok fields */
+.opname-card-mid {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 14px;
+  background: var(--bg); border-radius: 10px;
+  margin-bottom: 12px;
+}
+.op-field { display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; min-width:60px; }
+.op-field label { font-size: 10px; font-weight: 700; text-transform: uppercase;
+  color: var(--text-muted); letter-spacing: 0.5px; }
+.op-sistem { font-size: 18px; font-weight: 800; color: var(--text); }
+.op-input {
+  width: 80px; text-align: center; font-size: 16px; font-weight: 700;
+  padding: 6px 8px; border: 2px solid var(--primary-light); border-radius: 8px;
+  background: var(--card); color: var(--text); font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.op-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(245,158,11,0.15); }
+.op-diff { font-size: 18px; font-weight: 800; color: var(--text-muted); min-width: 40px; text-align:center; }
+.op-arrow { color: var(--text-muted); font-size: 14px; }
+
+/* Bot row: note + save button */
+.opname-card-bot {
+  display: flex; gap: 10px; align-items: center;
+}
+.op-note-input {
+  flex: 1; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px;
+  font-size: 12.5px; background: var(--bg); color: var(--text); font-family: inherit;
+}
+.op-note-input:focus { outline: none; border-color: var(--primary-light); }
+.op-save-btn {
+  padding: 8px 18px; font-size: 13px; font-weight: 700;
+  border-radius: 8px; white-space: nowrap; flex-shrink: 0;
+  display: flex; align-items: center; gap: 6px;
+}
+
+/* Dark mode opname */
+body[data-theme="dark"] .opname-card { background: #1e293b; border-color: #334155; }
+body[data-theme="dark"] .opname-card:hover { border-color: var(--primary-light); }
+body[data-theme="dark"] .opname-card-mid { background: #0f172a; }
+body[data-theme="dark"] .op-input { background: #1e293b; border-color: #2563a8; color: #e2e8f0; }
+body[data-theme="dark"] .op-note-input { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+body[data-theme="dark"] .faq-item { background: #0f172a; border-color: #334155; }
+
+/* Mobile opname */
+@media(max-width:640px) {
+  .opname-card-mid { gap: 8px; }
+  .op-field { min-width: 50px; }
+  .op-input { width: 65px; font-size: 15px; }
+  .opname-card-bot { flex-wrap: wrap; }
+  .op-note-input { min-width: 0; }
+}

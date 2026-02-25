@@ -395,6 +395,21 @@ function navigateTo(id) {
   if (id === 'log')        renderLog();
 }
 
+// ───────────────────── PANDUAN TABS ─────────────────────────
+function switchGuide(tab) {
+  // Sembunyikan semua panel
+  document.querySelectorAll('.guide-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.guide-tab').forEach(t => t.classList.remove('active'));
+  // Tampilkan yang dipilih
+  const panel = document.getElementById('guide-' + tab);
+  if (panel) panel.classList.add('active');
+  // Aktifkan tombol tab yang sesuai
+  const tabs = document.querySelectorAll('.guide-tab');
+  const tabMap = ['login','barang','transaksi','stok','keuangan','opname','pengaturan','tips'];
+  const idx = tabMap.indexOf(tab);
+  if (tabs[idx]) tabs[idx].classList.add('active');
+}
+
 // ───────────────────── INIT ─────────────────────────────────────
 function initData() {
   if (window.FIREBASE_READY) {
@@ -830,51 +845,75 @@ function buildSalesDashboard() {
 
 // ───────────────────── STOCK OPNAME ─────────────────────────────
 function renderOpname() {
-  const el = document.getElementById('opname-table-body');
-  if (!el) return;
+  const container = document.getElementById('opname-cards');
+  if (!container) return;
   const date = new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
-  document.getElementById('opname-date').textContent = 'Tanggal: ' + date;
+  const dateEl = document.getElementById('opname-date');
+  if(dateEl) dateEl.textContent = 'Tanggal: ' + date;
 
   if (DB.barang.length === 0) {
-    el.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--text-muted)">Belum ada data barang</td></tr>';
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-box-open" style="font-size:40px;margin-bottom:12px;display:block;opacity:0.3"></i>Belum ada data barang</div>';
+    renderOpnameStats();
     return;
   }
 
-  // Update KPI cards
+  renderOpnameStats();
+
+  container.innerHTML = DB.barang.map((b,i) => {
+    const stokNum  = parseInt(b.stok)||0;
+    const minStok  = parseInt(b.minStok)||20;
+    const statusCls = stokNum <= 0 ? 'badge-red' : stokNum <= minStok ? 'badge-amber' : 'badge-green';
+    const statusTxt = stokNum <= 0 ? '⛔ Habis'   : stokNum <= minStok ? '⚠️ Kritis'   : '✅ Aman';
+    return `
+    <div class="opname-card" id="op-row-${i}">
+      <!-- Baris atas: info barang + status -->
+      <div class="opname-card-top">
+        <div class="opname-card-info">
+          <code class="op-kode">${b.kode}</code>
+          <strong class="op-nama">${b.nama}</strong>
+          <span class="op-satuan">${b.satuan}</span>
+        </div>
+        <div id="op-status-wrap-${i}">
+          <span class="badge ${statusCls}">${statusTxt}</span>
+        </div>
+      </div>
+
+      <!-- Baris tengah: stok sistem → aktual → selisih -->
+      <div class="opname-card-mid">
+        <div class="op-field">
+          <label>Stok Sistem</label>
+          <span class="op-sistem" id="op-sistem-${i}">${stokNum}</span>
+        </div>
+        <div class="op-arrow"><i class="fas fa-arrow-right"></i></div>
+        <div class="op-field">
+          <label>Stok Aktual</label>
+          <input type="number" id="op-act-${i}" value="${stokNum}" min="0"
+            class="op-input" oninput="updateOpnameDiff(${i})">
+        </div>
+        <div class="op-field">
+          <label>Selisih</label>
+          <span id="op-diff-${i}" class="op-diff">0</span>
+        </div>
+      </div>
+
+      <!-- Baris bawah: catatan + tombol simpan -->
+      <div class="opname-card-bot">
+        <input type="text" id="op-note-${i}" placeholder="✏️ Catatan opname..." class="op-note-input">
+        <button class="btn btn-success op-save-btn" id="op-save-${i}"
+          onclick="simpanOpnameRow(${i})" title="Simpan ke sistem">
+          <i class="fas fa-save"></i> Simpan
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderOpnameStats() {
   const safe = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
   safe('op-total',  DB.barang.length);
-  safe('op-aman',   DB.barang.filter(b=>b.stok>b.minStok).length);
-  safe('op-kritis', DB.barang.filter(b=>b.stok>0&&b.stok<=b.minStok).length);
-  safe('op-habis',  DB.barang.filter(b=>b.stok<=0).length);
-
-  el.innerHTML = DB.barang.map((b,i) => {
-    const statusBadge = b.stok <= 0
-      ? `<span class="badge badge-red" id="op-status-${i}">⛔ Habis</span>`
-      : b.stok <= b.minStok
-        ? `<span class="badge badge-amber" id="op-status-${i}">⚠️ Kritis</span>`
-        : `<span class="badge badge-green" id="op-status-${i}">✅ Aman</span>`;
-    return `<tr id="op-row-${i}">
-      <td><code>${b.kode}</code></td>
-      <td><strong>${b.nama}</strong></td>
-      <td>${b.satuan}</td>
-      <td style="font-weight:700;text-align:center">${b.stok}</td>
-      <td style="text-align:center">
-        <input type="number" id="op-act-${i}" value="${b.stok}" min="0"
-          style="width:80px;border:1.5px solid var(--border);border-radius:8px;padding:6px;text-align:center;background:var(--surface)"
-          oninput="updateOpnameDiff(${i})">
-      </td>
-      <td id="op-diff-${i}" style="font-weight:700;text-align:center;color:var(--text-muted)">0</td>
-      <td id="op-status-wrap-${i}">${statusBadge}</td>
-      <td><input type="text" id="op-note-${i}" placeholder="Catatan..."
-          style="width:130px;border:1.5px solid var(--border);border-radius:8px;padding:6px;font-size:12px;background:var(--surface)"></td>
-      <td>
-        <button class="btn btn-sm btn-success" onclick="simpanOpnameRow(${i})" id="op-save-${i}"
-          style="padding:5px 10px;font-size:12px" title="Simpan ke sistem">
-          <i class="fas fa-save"></i>
-        </button>
-      </td>
-    </tr>`;
-  }).join('');
+  safe('op-aman',   DB.barang.filter(b=>(parseInt(b.stok)||0)>(parseInt(b.minStok)||20)).length);
+  safe('op-kritis', DB.barang.filter(b=>{const s=parseInt(b.stok)||0,m=parseInt(b.minStok)||20;return s>0&&s<=m;}).length);
+  safe('op-habis',  DB.barang.filter(b=>(parseInt(b.stok)||0)<=0).length);
 }
 
 function updateOpnameDiff(i) {

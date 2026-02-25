@@ -19,6 +19,9 @@ const MENU_CONFIG = [
   { id:'settings',   label:'Pengaturan',          icon:'fa-cog',            sub:'Kelola pengguna & data' },
   { id:'log',        label:'Log Aktivitas',       icon:'fa-list-check',     sub:'Rekam jejak aktivitas tim' },
   { id:'tutorial',   label:'Panduan',             icon:'fa-circle-question',sub:'Cara pakai sistem' },
+  { id:'gudang',     label:'Multi-Gudang',        icon:'fa-warehouse',      sub:'Kelola stok per gudang' },
+  { id:'tren_stok',  label:'Tren Stok',           icon:'fa-chart-line',     sub:'Grafik naik/turun stok' },
+  { id:'surat_jalan',label:'Surat Jalan',         icon:'fa-truck',          sub:'Generate & kirim surat jalan' },
 ];
 
 // Grup menu: setiap grup bisa expand/collapse
@@ -36,6 +39,11 @@ const MENU_GROUPS = [
       { id:'sales_dash', label:'Dashboard Sales',     icon:'fa-user-chart' },
   ]},
   { id:'g-stok',      label:'Stock Opname', icon:'fa-clipboard-check',  single:'opname'    },
+  { id:'g-gudang',    label:'Multi-Gudang', icon:'fa-warehouse',        children:[
+      { id:'gudang',     label:'Kelola Gudang',   icon:'fa-building'   },
+      { id:'tren_stok',  label:'Tren Stok',       icon:'fa-chart-line' },
+  ]},
+  { id:'g-pengiriman',label:'Pengiriman',   icon:'fa-truck',            single:'surat_jalan'},
   { id:'g-setting',   label:'Pengaturan',   icon:'fa-cog',              children:[
       { id:'settings', label:'Pengaturan',    icon:'fa-cog'        },
       { id:'log',      label:'Log Aktivitas', icon:'fa-list-check' },
@@ -59,7 +67,9 @@ const DB = {
   barang: [], invoice: [], mitra: [],
   pengeluaran: [], pembelian: [],
   log: [], chat: [],
-  notifikasi: [], // Dimuat dari Firestore koleksi 'notifikasi'
+  notifikasi: [],
+  gudang: [],       // Multi-Gudang
+  surat_jalan: [],  // Surat Jalan Digital
 };
 
 let chatMessages = [];
@@ -394,6 +404,9 @@ function navigateTo(id) {
   if (id === 'opname')     renderOpname();
   if (id === 'keuangan')   renderAssets();
   if (id === 'log')        renderLog();
+  if (id === 'tren_stok')  { updateTrenStokDropdown(); renderTrenStok(); }
+  if (id === 'gudang')     renderGudangList();
+  if (id === 'surat_jalan') renderSuratJalanList();
 }
 
 // ───────────────────── PANDUAN TABS ─────────────────────────
@@ -442,7 +455,7 @@ async function loadAllFromFirestore() {
   const { FS } = window;
   updateFBStatus('loading');
   try {
-    const [sB, sI, sM, sP, sPm, sL, sN] = await Promise.all([
+    const [sB, sI, sM, sP, sPm, sL, sN, sG, sSJ] = await Promise.all([
       FS.getDocs(FS.query(FS.col('barang'),       FS.orderBy('_ts','desc'))),
       FS.getDocs(FS.query(FS.col('invoice'),      FS.orderBy('_ts','desc'))),
       FS.getDocs(FS.query(FS.col('mitra'),        FS.orderBy('_ts','desc'))),
@@ -450,6 +463,8 @@ async function loadAllFromFirestore() {
       FS.getDocs(FS.query(FS.col('pembelian'),    FS.orderBy('_ts','desc'))),
       FS.getDocs(FS.query(FS.col('log'),          FS.orderBy('_ts','desc'), FS.limit(100))),
       FS.getDocs(FS.query(FS.col('notifikasi'),   FS.orderBy('_ts','desc'), FS.limit(50))),
+      FS.getDocs(FS.query(FS.col('gudang'),       FS.orderBy('_ts','desc'))),
+      FS.getDocs(FS.query(FS.col('surat_jalan'),  FS.orderBy('_ts','desc'))),
     ]);
     if (!sB.empty)  DB.barang      = sB.docs.map(d  => ({ _id:d.id,...d.data() }));
     if (!sI.empty)  DB.invoice     = sI.docs.map(d  => ({ _id:d.id,...d.data() }));
@@ -458,6 +473,8 @@ async function loadAllFromFirestore() {
     if (!sPm.empty) DB.pembelian   = sPm.docs.map(d => ({ _id:d.id,...d.data() }));
     if (!sL.empty)  DB.log         = sL.docs.map(d  => ({ _id:d.id,...d.data() }));
     if (!sN.empty)  DB.notifikasi  = sN.docs.map(d  => ({ _id:d.id,...d.data() }));
+    if (!sG.empty)  DB.gudang      = sG.docs.map(d  => ({ _id:d.id,...d.data() }));
+    if (!sSJ.empty) DB.surat_jalan = sSJ.docs.map(d => ({ _id:d.id,...d.data() }));
 
     setupRealtimeListeners();
     renderAll();
@@ -497,6 +514,16 @@ function setupRealtimeListeners() {
   });
   FS.onSnapshot(FS.query(FS.col('notifikasi'), FS.orderBy('_ts','desc'), FS.limit(50)), s => {
     if(!s.empty) { DB.notifikasi=s.docs.map(d=>({_id:d.id,...d.data()})); renderNotifications(); }
+  });
+  FS.onSnapshot(FS.query(FS.col('gudang'), FS.orderBy('_ts','desc')), s => {
+    DB.gudang = s.docs.map(d=>({_id:d.id,...d.data()}));
+    renderGudangList();
+    const badge = document.getElementById('total-gudang-badge');
+    if (badge) badge.textContent = DB.gudang.length + ' Gudang';
+  });
+  FS.onSnapshot(FS.query(FS.col('surat_jalan'), FS.orderBy('_ts','desc')), s => {
+    DB.surat_jalan = s.docs.map(d=>({_id:d.id,...d.data()}));
+    renderSuratJalanList();
   });
 }
 
@@ -630,6 +657,7 @@ function renderInvoice() {
           <button class="btn btn-outline btn-icon btn-sm" onclick="showInvoicePreview(${i})" title="Preview"><i class="fas fa-eye"></i></button>
           ${canEdit&&inv.status!=='Lunas'?`<button class="btn btn-success btn-icon btn-sm" onclick="tandaiLunas(${i})" title="Tandai Lunas"><i class="fas fa-check"></i></button>`:''}
           <button class="btn btn-primary btn-icon btn-sm" onclick="window.print()" title="Cetak"><i class="fas fa-print"></i></button>
+          <button class="btn btn-accent btn-icon btn-sm" onclick="generateSuratJalan('${inv._id}')" title="Generate Surat Jalan"><i class="fas fa-truck"></i></button>
           ${canEdit?`<button class="btn btn-danger btn-icon btn-sm" onclick="hapusTransaksi(${i})" title="Hapus"><i class="fas fa-trash"></i></button>`:''}
         </div>
       </td>
@@ -2404,8 +2432,491 @@ function renderAll() {
   renderDashboardStats();
   renderInvoiceStats();
   updateKategoriDropdowns();
+  renderSuratJalanList();
+  renderGudangList();
+  renderTrenStok();
   if (currentUser) applyRoleRestrictions(currentUser.role);
   // Cek & push notif stok kritis ke Firestore (async, tidak blocking)
   checkStokKritisNotif().then(() => renderNotifications()).catch(() => renderNotifications());
   checkAndPushBrowserNotif();
 }
+
+// ================================================================
+//  BMS v8.0 — FITUR BARU
+//  1. Surat Jalan Digital
+//  2. Grafik Tren Stok
+//  3. Multi-Gudang
+// ================================================================
+
+// ───────────────────── SURAT JALAN DIGITAL ──────────────────────
+
+function renderSuratJalanList() {
+  const tbody = document.getElementById('tbody-surat-jalan');
+  if (!tbody) return;
+  const list = DB.surat_jalan;
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">Belum ada surat jalan. Generate dari menu Transaksi.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(sj => `
+    <tr>
+      <td><strong style="color:var(--primary-light)">${sj.noSJ}</strong></td>
+      <td>${sj.tgl}</td>
+      <td><strong>${sj.mitra}</strong></td>
+      <td>${sj.sopir || '-'}</td>
+      <td>${sj.kendaraan || '-'}</td>
+      <td><span class="badge ${sj.status==='Terkirim'?'badge-green':sj.status==='Dikirim'?'badge-amber':'badge-blue'}">${sj.status||'Draft'}</span></td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-primary btn-icon btn-sm" onclick="printSuratJalan('${sj._id}')" title="Print"><i class="fas fa-print"></i></button>
+          <button class="btn btn-success btn-icon btn-sm" onclick="kirimWASuratJalan('${sj._id}')" title="Kirim WhatsApp"><i class="fab fa-whatsapp"></i></button>
+          <button class="btn btn-outline btn-icon btn-sm" onclick="updateStatusSJ('${sj._id}')" title="Update Status"><i class="fas fa-check"></i></button>
+          <button class="btn btn-danger btn-icon btn-sm" onclick="hapusSuratJalan('${sj._id}')" title="Hapus"><i class="fas fa-trash"></i></button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+async function generateSuratJalan(invoiceId) {
+  const inv = DB.invoice.find(i => i._id === invoiceId || i.no === invoiceId);
+  if (!inv) { showToast('Invoice tidak ditemukan!', 'error'); return; }
+  const noSJ = 'SJ-' + Date.now().toString().slice(-6);
+  const data = {
+    noSJ,
+    noInvoice  : inv.no,
+    tgl        : new Date().toISOString().slice(0,10),
+    mitra      : inv.mitra,
+    alamatMitra: inv.alamatMitra || '-',
+    items      : inv.items || [],
+    totalBerat : '-',
+    sopir      : '',
+    kendaraan  : '',
+    catatan    : '',
+    status     : 'Draft',
+    _ts        : window.FS.ts(),
+  };
+  try {
+    const ref = await window.FS.addDoc(window.FS.col('surat_jalan'), data);
+    DB.surat_jalan.unshift({ _id: ref.id, ...data });
+    renderSuratJalanList();
+    showToast(`✅ Surat Jalan ${noSJ} berhasil dibuat!`, 'success');
+    // Buka preview langsung
+    openPreviewSuratJalan(ref.id);
+  } catch(e) {
+    showToast('Gagal simpan: ' + e.message, 'error');
+  }
+}
+
+function openPreviewSuratJalan(id) {
+  const sj = DB.surat_jalan.find(s => s._id === id);
+  if (!sj) return;
+  const co = appConfig?.company || {};
+  const content = document.getElementById('surat-jalan-preview-content');
+  if (!content) return;
+  content.innerHTML = `
+    <div class="sj-print-area" id="sj-print-${sj._id}">
+      <div class="sj-header">
+        <div class="sj-company">
+          <h2>${co.nama || "CV. Baitul Ma'mur Syafaah"}</h2>
+          <p>${co.alamat || ''}</p>
+          <p>Telp: ${co.telp || ''} | ${co.email || ''}</p>
+        </div>
+        <div class="sj-title-box">
+          <h1>SURAT JALAN</h1>
+          <table class="sj-meta-table">
+            <tr><td>No. SJ</td><td>: <strong>${sj.noSJ}</strong></td></tr>
+            <tr><td>No. Invoice</td><td>: ${sj.noInvoice}</td></tr>
+            <tr><td>Tanggal</td><td>: ${sj.tgl}</td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="sj-recipient">
+        <strong>Kepada Yth:</strong><br>
+        <strong>${sj.mitra}</strong><br>
+        ${sj.alamatMitra}
+      </div>
+      <div class="sj-transport">
+        <div class="sj-transport-item"><label>Sopir</label><div class="sj-input-field" contenteditable="true" id="sj-sopir-${sj._id}" onblur="updateSJField('${sj._id}','sopir',this.innerText)">${sj.sopir || 'Klik untuk isi'}</div></div>
+        <div class="sj-transport-item"><label>No. Kendaraan</label><div class="sj-input-field" contenteditable="true" id="sj-kend-${sj._id}" onblur="updateSJField('${sj._id}','kendaraan',this.innerText)">${sj.kendaraan || 'Klik untuk isi'}</div></div>
+      </div>
+      <table class="sj-items-table">
+        <thead><tr><th>No</th><th>Nama Barang</th><th>Qty</th><th>Satuan</th><th>Keterangan</th></tr></thead>
+        <tbody>
+          ${(sj.items||[]).map((it,i) => `<tr><td>${i+1}</td><td>${it.nama}</td><td>${it.qty}</td><td>${it.satuan||''}</td><td></td></tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="sj-catatan"><label>Catatan:</label><div class="sj-input-field" contenteditable="true" onblur="updateSJField('${sj._id}','catatan',this.innerText)">${sj.catatan || '-'}</div></div>
+      <div class="sj-ttd">
+        <div class="sj-ttd-col"><div class="sj-ttd-label">Disiapkan Oleh,</div><div class="sj-ttd-space"></div><div class="sj-ttd-name">( _________________ )</div></div>
+        <div class="sj-ttd-col"><div class="sj-ttd-label">Pengantar / Sopir,</div><div class="sj-ttd-space"></div><div class="sj-ttd-name">( ${sj.sopir || '________________'} )</div></div>
+        <div class="sj-ttd-col"><div class="sj-ttd-label">Penerima,</div><div class="sj-ttd-space"></div><div class="sj-ttd-name">( _________________ )</div></div>
+      </div>
+    </div>`;
+  openModal('modal-surat-jalan-preview');
+}
+
+async function updateSJField(id, field, value) {
+  const sj = DB.surat_jalan.find(s => s._id === id);
+  if (!sj) return;
+  sj[field] = value;
+  try {
+    await window.FS.updateDoc(window.FS.docRef('surat_jalan', id), { [field]: value });
+  } catch(e) { console.warn('Update SJ failed:', e); }
+}
+
+function printSuratJalan(id) {
+  openPreviewSuratJalan(id);
+  setTimeout(() => {
+    document.body.classList.add('print-sj-mode');
+    window.print();
+    document.body.classList.remove('print-sj-mode');
+  }, 300);
+}
+
+function kirimWASuratJalan(id) {
+  const sj = DB.surat_jalan.find(s => s._id === id);
+  if (!sj) return;
+  const items = (sj.items||[]).map((it,i) => `${i+1}. ${it.nama} — ${it.qty} ${it.satuan||''}`).join('\n');
+  const msg = encodeURIComponent(
+    `*SURAT JALAN — ${appConfig?.company?.nama || 'BMS'}*\n` +
+    `No: ${sj.noSJ} | Invoice: ${sj.noInvoice}\n` +
+    `Tanggal: ${sj.tgl}\n` +
+    `Kepada: ${sj.mitra}\n\n` +
+    `*Item Pengiriman:*\n${items}\n\n` +
+    `Sopir: ${sj.sopir || '-'} | Kendaraan: ${sj.kendaraan || '-'}\n` +
+    `Catatan: ${sj.catatan || '-'}`
+  );
+  window.open(`https://wa.me/?text=${msg}`, '_blank');
+}
+
+async function updateStatusSJ(id) {
+  const sj = DB.surat_jalan.find(s => s._id === id);
+  if (!sj) return;
+  const next = sj.status === 'Draft' ? 'Dikirim' : sj.status === 'Dikirim' ? 'Terkirim' : 'Draft';
+  sj.status = next;
+  try {
+    await window.FS.updateDoc(window.FS.docRef('surat_jalan', id), { status: next });
+    renderSuratJalanList();
+    showToast(`Status diubah ke: ${next}`, 'success');
+  } catch(e) { showToast('Gagal update status', 'error'); }
+}
+
+async function hapusSuratJalan(id) {
+  if (!confirm('Hapus surat jalan ini?')) return;
+  try {
+    await window.FS.deleteDoc(window.FS.docRef('surat_jalan', id));
+    DB.surat_jalan = DB.surat_jalan.filter(s => s._id !== id);
+    renderSuratJalanList();
+    showToast('Surat jalan dihapus.', 'success');
+  } catch(e) { showToast('Gagal hapus: ' + e.message, 'error'); }
+}
+
+// ───────────────────── GRAFIK TREN STOK ────────────────────────
+
+function renderTrenStok() {
+  const container = document.getElementById('tren-stok-container');
+  if (!container) return;
+
+  // Ambil filter produk
+  const filterEl = document.getElementById('tren-stok-filter');
+  const selected = filterEl ? filterEl.value : 'all';
+
+  // Hitung tren: perubahan stok per bulan dari riwayat pembelian & invoice
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    months.push({
+      key  : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,
+      label: d.toLocaleString('id-ID', { month: 'short', year:'2-digit' })
+    });
+  }
+
+  const barangList = selected === 'all'
+    ? DB.barang.slice(0, 8)
+    : DB.barang.filter(b => b._id === selected || b.kode === selected);
+
+  if (!barangList.length) {
+    container.innerHTML = '<p style="color:var(--text-muted);padding:20px">Tidak ada data barang.</p>';
+    return;
+  }
+
+  // Render summary cards dan chart
+  const cards = barangList.map(b => {
+    // Hitung masuk & keluar per bulan
+    const masuks = months.map(m => {
+      return DB.pembelian
+        .filter(p => p.barang === b.nama && p.tgl?.startsWith(m.key))
+        .reduce((s, p) => s + (p.qty || 0), 0);
+    });
+    const keluars = months.map(m => {
+      return DB.invoice.flatMap(inv => (inv.items || []).filter(it => it.nama === b.nama))
+        .filter((_, idx) => {
+          const inv = DB.invoice[Math.floor(idx / (DB.invoice[0]?.items?.length || 1))];
+          return inv?.tgl?.startsWith(m.key);
+        }).reduce((s, it) => s + (it.qty || 0), 0);
+      // Simplified: count all keluar per month via stok keluar history
+    });
+
+    // Gunakan data stok sekarang + tren sederhana dari masuk/keluar
+    const stokNow = b.stok || 0;
+    const statusColor = stokNow <= (b.minStok || 0) ? 'var(--danger)' : stokNow <= (b.minStok || 0) * 2 ? 'var(--accent)' : 'var(--accent2)';
+    const trend = (b.masuk || 0) >= (b.keluar || 0) ? '📈' : '📉';
+
+    return `
+      <div class="tren-card">
+        <div class="tren-card-header">
+          <div>
+            <div class="tren-card-title">${b.nama}</div>
+            <div class="tren-card-sub">${b.kode} · ${b.kategori}</div>
+          </div>
+          <span class="tren-trend-badge">${trend}</span>
+        </div>
+        <div class="tren-stats">
+          <div class="tren-stat"><span>Stok Kini</span><strong style="color:${statusColor}">${stokNow} ${b.satuan}</strong></div>
+          <div class="tren-stat"><span>Total Masuk</span><strong style="color:var(--accent2)">+${b.masuk||0}</strong></div>
+          <div class="tren-stat"><span>Total Keluar</span><strong style="color:var(--danger)">-${b.keluar||0}</strong></div>
+          <div class="tren-stat"><span>Min. Stok</span><strong>${b.minStok||0}</strong></div>
+        </div>
+        <div class="tren-bar-chart">
+          ${buildTrenBars(b, months)}
+        </div>
+        ${stokNow <= (b.minStok||0) ? `<div class="tren-alert">⚠️ Stok kritis — segera reorder ke supplier!</div>` : ''}
+        ${b.masuk && b.keluar ? `<div class="tren-reorder">💡 Rata-rata keluar: ~${Math.round((b.keluar||0)/6)}/bulan · Reorder saat stok &lt; ${Math.round((b.minStok||0)*1.5)}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  container.innerHTML = cards;
+}
+
+function buildTrenBars(b, months) {
+  // Rekonstruksi tren stok dari invoice dan pembelian per bulan
+  const masukPerBulan = months.map(m =>
+    DB.pembelian.filter(p => (p.namaBarang === b.nama || p.barang === b.nama) && p.tgl?.startsWith(m.key))
+      .reduce((s, p) => s + (p.qty||0), 0)
+  );
+  const keluarPerBulan = months.map(m =>
+    DB.invoice
+      .filter(inv => inv.tgl?.startsWith(m.key))
+      .flatMap(inv => inv.items||[])
+      .filter(it => it.nama === b.nama)
+      .reduce((s, it) => s + (it.qty||0), 0)
+  );
+  const maxVal = Math.max(...masukPerBulan, ...keluarPerBulan, 1);
+
+  return `<div class="tren-dual-bars">
+    ${months.map((m, i) => `
+      <div class="tren-month-col">
+        <div class="tren-dual-bar-wrap">
+          <div class="tren-bar-masuk" style="height:${Math.max(Math.round((masukPerBulan[i]/maxVal)*60),2)}px" title="+${masukPerBulan[i]} masuk"></div>
+          <div class="tren-bar-keluar" style="height:${Math.max(Math.round((keluarPerBulan[i]/maxVal)*60),2)}px" title="-${keluarPerBulan[i]} keluar"></div>
+        </div>
+        <div class="tren-month-label">${m.label}</div>
+      </div>`).join('')}
+    </div>
+    <div class="tren-legend">
+      <span class="tren-leg-masuk">▮ Masuk</span>
+      <span class="tren-leg-keluar">▮ Keluar</span>
+    </div>`;
+}
+
+function filterTrenStok() {
+  renderTrenStok();
+}
+
+function updateTrenStokDropdown() {
+  const sel = document.getElementById('tren-stok-filter');
+  if (!sel) return;
+  const opts = DB.barang.map(b => `<option value="${b._id}">${b.nama} (${b.kode})</option>`).join('');
+  sel.innerHTML = `<option value="all">Semua Produk (Top 8)</option>${opts}`;
+}
+
+// ───────────────────── MULTI-GUDANG ────────────────────────────
+
+function renderGudangList() {
+  const container = document.getElementById('gudang-list-container');
+  if (!container) return;
+  if (!DB.gudang.length) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:40px;color:var(--text-muted)">
+        <i class="fas fa-warehouse" style="font-size:40px;margin-bottom:12px;opacity:0.3"></i>
+        <p>Belum ada gudang terdaftar.</p>
+        <button class="btn btn-primary" onclick="openModal('modal-gudang')"><i class="fas fa-plus"></i> Tambah Gudang Pertama</button>
+      </div>`;
+    return;
+  }
+  container.innerHTML = DB.gudang.map(g => {
+    // Hitung total stok di gudang ini
+    const totalStok = (g.stokItems || []).reduce((s, it) => s + (it.qty||0), 0);
+    const totalNilai = (g.stokItems || []).reduce((s, it) => {
+      const barang = DB.barang.find(b => b._id === it.barangId || b.nama === it.nama);
+      return s + (it.qty||0) * (barang?.hjual||0);
+    }, 0);
+    return `
+      <div class="gudang-card">
+        <div class="gudang-card-header">
+          <div class="gudang-icon"><i class="fas fa-warehouse"></i></div>
+          <div class="gudang-info">
+            <h3>${g.nama}</h3>
+            <p><i class="fas fa-map-marker-alt"></i> ${g.lokasi||'-'}</p>
+            <p><i class="fas fa-user"></i> PIC: ${g.pic||'-'}</p>
+          </div>
+          <span class="badge ${g.status==='Aktif'?'badge-green':'badge-amber'}">${g.status||'Aktif'}</span>
+        </div>
+        <div class="gudang-stats">
+          <div class="gudang-stat"><span>Total Item</span><strong>${(g.stokItems||[]).length}</strong></div>
+          <div class="gudang-stat"><span>Total Unit</span><strong>${totalStok.toLocaleString('id-ID')}</strong></div>
+          <div class="gudang-stat"><span>Nilai Stok</span><strong>Rp ${Math.round(totalNilai/1000000)}Jt</strong></div>
+        </div>
+        <div class="gudang-actions">
+          <button class="btn btn-outline btn-sm" onclick="lihatStokGudang('${g._id}')"><i class="fas fa-eye"></i> Lihat Stok</button>
+          <button class="btn btn-primary btn-sm" onclick="openTransferModal('${g._id}')"><i class="fas fa-exchange-alt"></i> Transfer Stok</button>
+          <button class="btn btn-danger btn-icon btn-sm" onclick="hapusGudang('${g._id}')"><i class="fas fa-trash"></i></button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function simpanGudang() {
+  const nama   = document.getElementById('gd-nama')?.value.trim();
+  const lokasi = document.getElementById('gd-lokasi')?.value.trim();
+  const pic    = document.getElementById('gd-pic')?.value.trim();
+  const telp   = document.getElementById('gd-telp')?.value.trim();
+  if (!nama) { showToast('Nama gudang wajib diisi!', 'error'); return; }
+  const data = { nama, lokasi, pic, telp, status: 'Aktif', stokItems: [], _ts: window.FS.ts() };
+  try {
+    const ref = await window.FS.addDoc(window.FS.col('gudang'), data);
+    DB.gudang.unshift({ _id: ref.id, ...data });
+    renderGudangList();
+    closeModal('modal-gudang');
+    showToast(`✅ Gudang "${nama}" berhasil ditambahkan!`, 'success');
+    addLog('Tambah Gudang', `Gudang: ${nama} - ${lokasi}`);
+  } catch(e) { showToast('Gagal simpan: ' + e.message, 'error'); }
+}
+
+async function hapusGudang(id) {
+  const g = DB.gudang.find(x => x._id === id);
+  if (!confirm(`Hapus gudang "${g?.nama}"? Semua data stok di gudang ini akan hilang.`)) return;
+  try {
+    await window.FS.deleteDoc(window.FS.docRef('gudang', id));
+    DB.gudang = DB.gudang.filter(x => x._id !== id);
+    renderGudangList();
+    showToast('Gudang dihapus.', 'success');
+  } catch(e) { showToast('Gagal hapus: ' + e.message, 'error'); }
+}
+
+function lihatStokGudang(id) {
+  const g = DB.gudang.find(x => x._id === id);
+  if (!g) return;
+  const modal = document.getElementById('modal-stok-gudang');
+  const title = document.getElementById('stok-gudang-title');
+  const body  = document.getElementById('stok-gudang-body');
+  if (!modal || !body) return;
+  if (title) title.textContent = `📦 Stok Gudang — ${g.nama}`;
+  const items = g.stokItems || [];
+  body.innerHTML = items.length
+    ? `<table style="width:100%">
+        <thead><tr><th>Barang</th><th>Qty</th><th>Satuan</th><th>Update Terakhir</th></tr></thead>
+        <tbody>${items.map(it => `
+          <tr>
+            <td><strong>${it.nama}</strong></td>
+            <td style="font-weight:800;color:var(--primary-light)">${it.qty}</td>
+            <td>${it.satuan||'-'}</td>
+            <td style="color:var(--text-muted);font-size:12px">${it.updatedAt||'-'}</td>
+          </tr>`).join('')}</tbody>
+       </table>`
+    : '<p style="color:var(--text-muted);padding:20px;text-align:center">Gudang ini belum memiliki stok terdaftar.</p>';
+  openModal('modal-stok-gudang');
+}
+
+let _transferFromId = null;
+function openTransferModal(fromId) {
+  _transferFromId = fromId;
+  const from = DB.gudang.find(g => g._id === fromId);
+  if (!from) return;
+  // Isi dropdown tujuan
+  const sel = document.getElementById('tf-tujuan');
+  if (sel) {
+    sel.innerHTML = DB.gudang
+      .filter(g => g._id !== fromId)
+      .map(g => `<option value="${g._id}">${g.nama}</option>`).join('') ||
+      '<option value="">-- Tidak ada gudang lain --</option>';
+  }
+  // Isi dropdown barang dari gudang asal
+  const selBarang = document.getElementById('tf-barang');
+  if (selBarang) {
+    const items = from.stokItems || [];
+    selBarang.innerHTML = items.length
+      ? items.map(it => `<option value="${it.nama}">${it.nama} (stok: ${it.qty})</option>`).join('')
+      : '<option value="">-- Belum ada stok --</option>';
+  }
+  const fromEl = document.getElementById('tf-dari-nama');
+  if (fromEl) fromEl.textContent = from.nama;
+  openModal('modal-transfer-stok');
+}
+
+async function simpanTransferStok() {
+  const tujuanId = document.getElementById('tf-tujuan')?.value;
+  const namaBarang = document.getElementById('tf-barang')?.value;
+  const qty = parseInt(document.getElementById('tf-qty')?.value || '0');
+  const catatan = document.getElementById('tf-catatan')?.value.trim();
+
+  if (!tujuanId)    { showToast('Pilih gudang tujuan!', 'error'); return; }
+  if (!namaBarang)  { showToast('Pilih barang!', 'error'); return; }
+  if (!qty || qty < 1) { showToast('Jumlah harus lebih dari 0!', 'error'); return; }
+
+  const from = DB.gudang.find(g => g._id === _transferFromId);
+  const to   = DB.gudang.find(g => g._id === tujuanId);
+  if (!from || !to) return;
+
+  const itemFrom = (from.stokItems||[]).find(it => it.nama === namaBarang);
+  if (!itemFrom || itemFrom.qty < qty) {
+    showToast(`Stok tidak cukup! Tersedia: ${itemFrom?.qty||0}`, 'error'); return;
+  }
+
+  // Kurangi dari gudang asal
+  itemFrom.qty -= qty;
+
+  // Tambah ke gudang tujuan
+  let itemTo = (to.stokItems||[]).find(it => it.nama === namaBarang);
+  if (itemTo) {
+    itemTo.qty += qty;
+  } else {
+    to.stokItems = to.stokItems || [];
+    to.stokItems.push({ nama: namaBarang, qty, satuan: itemFrom.satuan, updatedAt: new Date().toISOString().slice(0,10) });
+  }
+  if (itemTo) itemTo.updatedAt = new Date().toISOString().slice(0,10);
+
+  try {
+    await Promise.all([
+      window.FS.updateDoc(window.FS.docRef('gudang', _transferFromId), { stokItems: from.stokItems }),
+      window.FS.updateDoc(window.FS.docRef('gudang', tujuanId), { stokItems: to.stokItems }),
+    ]);
+    renderGudangList();
+    closeModal('modal-transfer-stok');
+    showToast(`✅ Transfer ${qty} ${namaBarang} dari ${from.nama} → ${to.nama} berhasil!`, 'success');
+    addLog('Transfer Stok', `${qty}x ${namaBarang}: ${from.nama} → ${to.nama}. ${catatan||''}`);
+  } catch(e) {
+    showToast('Gagal transfer: ' + e.message, 'error');
+    // Rollback
+    itemFrom.qty += qty;
+    if (itemTo) itemTo.qty -= qty;
+  }
+}
+
+// Tambah stok masuk ke gudang tertentu (via modal stok masuk diperluas)
+async function simpanStokMasukGudang(gudangId, barangId, qty) {
+  const g = DB.gudang.find(x => x._id === gudangId);
+  const b = DB.barang.find(x => x._id === barangId);
+  if (!g || !b) return;
+  g.stokItems = g.stokItems || [];
+  const item = g.stokItems.find(it => it.nama === b.nama);
+  if (item) {
+    item.qty += qty;
+    item.updatedAt = new Date().toISOString().slice(0,10);
+  } else {
+    g.stokItems.push({ nama: b.nama, qty, satuan: b.satuan, barangId: b._id, updatedAt: new Date().toISOString().slice(0,10) });
+  }
+  await window.FS.updateDoc(window.FS.docRef('gudang', gudangId), { stokItems: g.stokItems });
+}
+

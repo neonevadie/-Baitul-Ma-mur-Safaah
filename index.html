@@ -1000,6 +1000,62 @@
 
       </div>
 
+      <!-- ===== SURAT JALAN DIGITAL ===== -->
+      <div class="page" id="page-surat_jalan">
+        <div class="actions-bar">
+          <div class="actions-left">
+            <div class="search-bar"><i class="fas fa-search"></i><input type="text" id="search-surat-jalan" placeholder="Cari no SJ, mitra, sopir..."></div>
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-outline btn-sm" onclick="exportCSV('surat_jalan')"><i class="fas fa-download"></i> Export</button>
+          </div>
+        </div>
+        <div class="alert alert-info" style="margin-bottom:16px">
+          <i class="fas fa-info-circle"></i>
+          Generate Surat Jalan dari halaman <strong>Transaksi</strong> — klik ikon 🚚 di kolom Aksi pada invoice yang ingin dikirim.
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>No SJ</th><th>Tgl</th><th>Mitra</th><th>Sopir</th><th>Kendaraan</th><th>Status</th><th>Aksi</th></tr></thead>
+              <tbody id="tbody-surat-jalan"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== TREN STOK ===== -->
+      <div class="page" id="page-tren_stok">
+        <div class="actions-bar">
+          <div class="actions-left">
+            <select id="tren-stok-filter" class="year-select" onchange="filterTrenStok()" style="min-width:220px">
+              <option value="all">Semua Produk (Top 8)</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-outline btn-sm" onclick="renderTrenStok()"><i class="fas fa-rotate"></i> Refresh</button>
+          </div>
+        </div>
+        <div class="alert alert-info" style="margin-bottom:16px">
+          <i class="fas fa-chart-line"></i>
+          Visualisasi <strong>stok masuk vs keluar</strong> per produk selama 6 bulan terakhir. Warna <span style="color:var(--accent2)">hijau</span> = masuk, <span style="color:var(--danger)">merah</span> = keluar.
+        </div>
+        <div id="tren-stok-container" class="tren-stok-grid"></div>
+      </div>
+
+      <!-- ===== MULTI-GUDANG ===== -->
+      <div class="page" id="page-gudang">
+        <div class="actions-bar">
+          <div class="actions-left">
+            <span class="badge badge-blue" id="total-gudang-badge">0 Gudang</span>
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-primary" onclick="openModal('modal-gudang')"><i class="fas fa-plus"></i> Tambah Gudang</button>
+          </div>
+        </div>
+        <div id="gudang-list-container" class="gudang-grid"></div>
+      </div>
+
     </div><!-- /content -->
 
     <!-- Footer -->
@@ -1302,6 +1358,84 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-pembelian')">Batal</button>
       <button class="btn btn-accent" onclick="simpanPembelian()"><i class="fas fa-save"></i> Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: TAMBAH GUDANG ===== -->
+<div class="modal-overlay" id="modal-gudang">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h3><i class="fas fa-warehouse" style="color:var(--primary-light)"></i> Tambah Gudang</h3>
+      <button class="modal-close" onclick="closeModal('modal-gudang')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Nama Gudang *</label><input type="text" id="gd-nama" placeholder="Gudang Utama, Gudang Cabang Bogor..."></div>
+      <div class="field"><label>Lokasi / Alamat</label><input type="text" id="gd-lokasi" placeholder="Jl. Raya No. 1, Bogor"></div>
+      <div class="form-row">
+        <div class="field"><label>PIC (Penanggung Jawab)</label><input type="text" id="gd-pic" placeholder="Nama penanggung jawab"></div>
+        <div class="field"><label>No HP PIC</label><input type="text" id="gd-telp" placeholder="0812-xxxx"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-gudang')">Batal</button>
+      <button class="btn btn-primary" onclick="simpanGudang()"><i class="fas fa-save"></i> Simpan Gudang</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: STOK GUDANG ===== -->
+<div class="modal-overlay" id="modal-stok-gudang">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3 id="stok-gudang-title"><i class="fas fa-boxes-stacked" style="color:var(--primary-light)"></i> Stok Gudang</h3>
+      <button class="modal-close" onclick="closeModal('modal-stok-gudang')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="stok-gudang-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-stok-gudang')">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: TRANSFER STOK ANTAR GUDANG ===== -->
+<div class="modal-overlay" id="modal-transfer-stok">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h3><i class="fas fa-exchange-alt" style="color:var(--accent)"></i> Transfer Stok Antar Gudang</h3>
+      <button class="modal-close" onclick="closeModal('modal-transfer-stok')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-info" style="margin-bottom:14px;font-size:12.5px">
+        Dari Gudang: <strong id="tf-dari-nama">—</strong>
+      </div>
+      <div class="field"><label>Gudang Tujuan *</label><select id="tf-tujuan"><option>Pilih gudang tujuan...</option></select></div>
+      <div class="field"><label>Barang *</label><select id="tf-barang"><option>Pilih barang...</option></select></div>
+      <div class="form-row">
+        <div class="field"><label>Jumlah *</label><input type="number" id="tf-qty" placeholder="0" min="1"></div>
+        <div class="field"><label>Catatan</label><input type="text" id="tf-catatan" placeholder="Alasan transfer..."></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-transfer-stok')">Batal</button>
+      <button class="btn btn-primary" onclick="simpanTransferStok()"><i class="fas fa-exchange-alt"></i> Transfer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: PREVIEW SURAT JALAN ===== -->
+<div class="modal-overlay" id="modal-surat-jalan-preview">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3><i class="fas fa-truck" style="color:var(--primary-light)"></i> Preview Surat Jalan</h3>
+      <button class="modal-close" onclick="closeModal('modal-surat-jalan-preview')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div id="surat-jalan-preview-content"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-surat-jalan-preview')">Tutup</button>
+      <button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print"></i> Cetak / Print PDF</button>
     </div>
   </div>
 </div>

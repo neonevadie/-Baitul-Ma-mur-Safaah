@@ -1398,3 +1398,232 @@ body[data-theme="dark"] .faq-item { background: #0f172a; border-color: #334155; 
   .opname-card-bot { flex-wrap: wrap; }
   .op-note-input { min-width: 0; }
 }
+
+/* ================================================================
+   BMS v8.0 — STYLES BARU
+   Surat Jalan · Tren Stok · Multi-Gudang
+================================================================ */
+
+/* ── SURAT JALAN PRINT ──────────────────────────────────────── */
+.sj-print-area {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: #111;
+  padding: 16px;
+}
+.sj-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #0f2744;
+}
+.sj-company h2 { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+.sj-company p  { font-size: 12px; color: #555; margin: 0; }
+.sj-title-box h1 { font-size: 22px; font-weight: 900; color: #0f2744; text-align: right; }
+.sj-meta-table td { font-size: 12px; padding: 2px 6px 2px 0; }
+.sj-recipient {
+  background: #f8fafc;
+  border-left: 4px solid #0f2744;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  border-radius: 0 8px 8px 0;
+}
+.sj-transport {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.sj-transport-item { flex: 1; }
+.sj-transport-item label { font-size: 11px; font-weight: 700; color: #666; display: block; margin-bottom: 4px; }
+.sj-input-field {
+  border: 1.5px dashed var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  min-height: 36px;
+  cursor: text;
+  color: var(--text);
+}
+.sj-input-field:focus { outline: none; border-color: var(--primary-light); }
+.sj-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+.sj-items-table th {
+  background: #0f2744;
+  color: #fff;
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 700;
+}
+.sj-items-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.sj-catatan { margin-bottom: 20px; }
+.sj-catatan label { font-size: 11px; font-weight: 700; color: #666; display: block; margin-bottom: 4px; }
+.sj-ttd {
+  display: flex;
+  gap: 16px;
+  margin-top: 20px;
+}
+.sj-ttd-col { flex: 1; text-align: center; }
+.sj-ttd-label { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+.sj-ttd-space { height: 60px; border-bottom: 1px solid #ccc; margin: 0 12px; }
+.sj-ttd-name { font-size: 12px; margin-top: 6px; }
+
+/* Print mode SJ */
+@media print {
+  body.print-sj-mode *:not(.sj-print-area):not(.sj-print-area *) { display: none !important; }
+  body.print-sj-mode .sj-print-area { display: block !important; }
+  .sj-input-field { border: none !important; }
+}
+
+/* ── TREN STOK ──────────────────────────────────────────────── */
+.tren-stok-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 18px;
+}
+.tren-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px;
+  transition: box-shadow .2s;
+}
+.tren-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+.tren-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+.tren-card-title { font-size: 15px; font-weight: 700; }
+.tren-card-sub   { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.tren-trend-badge { font-size: 22px; }
+.tren-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.tren-stat {
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 8px;
+  text-align: center;
+}
+.tren-stat span { font-size: 10px; color: var(--text-muted); display: block; margin-bottom: 2px; }
+.tren-stat strong { font-size: 13px; }
+.tren-bar-chart { margin-bottom: 10px; }
+.tren-dual-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 80px;
+  padding-bottom: 20px;
+  position: relative;
+}
+.tren-month-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+.tren-dual-bar-wrap {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 60px;
+}
+.tren-bar-masuk  { background: var(--accent2); border-radius: 3px 3px 0 0; min-height: 2px; width: 8px; transition: height .3s; }
+.tren-bar-keluar { background: var(--danger);   border-radius: 3px 3px 0 0; min-height: 2px; width: 8px; transition: height .3s; }
+.tren-month-label { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+.tren-legend { display: flex; gap: 12px; font-size: 11px; margin-top: 4px; }
+.tren-leg-masuk  { color: var(--accent2); font-weight: 700; }
+.tren-leg-keluar { color: var(--danger);   font-weight: 700; }
+.tren-alert {
+  background: rgba(239,68,68,.08);
+  border: 1px solid rgba(239,68,68,.2);
+  color: var(--danger);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  margin-top: 8px;
+}
+.tren-reorder {
+  background: rgba(245,158,11,.06);
+  border: 1px solid rgba(245,158,11,.2);
+  color: var(--accent);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+/* ── MULTI-GUDANG ────────────────────────────────────────────── */
+.gudang-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 18px;
+}
+.gudang-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px;
+  transition: box-shadow .2s;
+}
+.gudang-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.1); }
+.gudang-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.gudang-icon {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-mid));
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.gudang-info { flex: 1; }
+.gudang-info h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.gudang-info p  { font-size: 12px; color: var(--text-muted); margin: 2px 0; }
+.gudang-stats {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 10px;
+}
+.gudang-stat { flex: 1; text-align: center; }
+.gudang-stat span { font-size: 11px; color: var(--text-muted); display: block; }
+.gudang-stat strong { font-size: 14px; font-weight: 700; }
+.gudang-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ── ALERT INFO ─────────────────────────────────────────────── */
+.alert-info {
+  background: rgba(37,99,168,.07);
+  border: 1px solid rgba(37,99,168,.2);
+  color: var(--primary-light);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+

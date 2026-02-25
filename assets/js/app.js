@@ -1800,13 +1800,69 @@ function hitungTotal() {
 async function hapusTransaksi(i) {
   const inv = DB.invoice[i];
   if (!inv) return;
-  if (!confirm(`Hapus transaksi ${inv.no}?`)) return;
+
+  // Informasikan dampak rollback stok kepada user
+  const itemList = (inv.items || []).filter(Boolean)
+    .map(it => `• ${it.nama}: +${it.qty} ${it.satuan||''}`)
+    .join('\n');
+  const rollbackInfo = itemList
+    ? `\n\nStok berikut akan DIKEMBALIKAN:\n${itemList}`
+    : '';
+
+  if (!confirm(`Hapus transaksi ${inv.no}?\nMitra: ${inv.mitra} — Rp ${(inv.total||0).toLocaleString('id-ID')}${rollbackInfo}\n\n⚠️ Tindakan ini permanen!`)) return;
+
   try {
+    // 1. Rollback stok untuk setiap item di transaksi ini
+    const rollbackErrors = [];
+    for (const item of (inv.items || []).filter(Boolean)) {
+      if (!item.nama) continue;
+      const b = DB.barang.find(b => b.nama === item.nama);
+      if (b && b._id) {
+        const newStok   = (b.stok || 0) + item.qty;
+        const newKeluar = Math.max(0, (b.keluar || 0) - item.qty);
+        try {
+          await window.FS.updateDoc(window.FS.docRef('barang', b._id), {
+            stok  : newStok,
+            keluar: newKeluar,
+          });
+          b.stok   = newStok;
+          b.keluar = newKeluar;
+        } catch(e) {
+          rollbackErrors.push(item.nama);
+          // Tetap update lokal walau Firestore error
+          b.stok   = (b.stok || 0) + item.qty;
+          b.keluar = Math.max(0, (b.keluar || 0) - item.qty);
+        }
+      }
+    }
+
+    // 2. Hapus invoice dari Firestore
     if (inv._id) await window.FS.deleteDoc(window.FS.docRef('invoice', inv._id));
-    else { DB.invoice.splice(i,1); renderInvoice(); }
-    addLog('hapus','Hapus transaksi: '+inv.no);
-    showToast('🗑️ Transaksi dihapus!');
-  } catch(e) { DB.invoice.splice(i,1); renderInvoice(); showToast('🗑️ Transaksi dihapus (offline)'); }
+    else { DB.invoice.splice(i, 1); renderInvoice(); }
+
+    // 3. Log & notifikasi
+    addLog('hapus', `Hapus transaksi: ${inv.no} (stok ${inv.items?.length || 0} item dikembalikan)`);
+
+    if (rollbackErrors.length) {
+      showToast(`🗑️ Transaksi dihapus. ⚠️ Gagal rollback stok: ${rollbackErrors.join(', ')}`, 'warning');
+    } else {
+      showToast('🗑️ Transaksi dihapus & stok dikembalikan!');
+    }
+
+    renderBarang(); renderStok(); renderStokKritis();
+  } catch(e) {
+    // Offline fallback — tetap rollback stok lokal
+    for (const item of (inv.items || []).filter(Boolean)) {
+      const b = DB.barang.find(b => b.nama === item.nama);
+      if (b) {
+        b.stok   = (b.stok || 0) + item.qty;
+        b.keluar = Math.max(0, (b.keluar || 0) - item.qty);
+      }
+    }
+    DB.invoice.splice(i, 1);
+    renderInvoice(); renderBarang(); renderStok();
+    showToast('🗑️ Transaksi dihapus & stok dikembalikan (offline)');
+  }
 }
 
 async function simpanInvoice() {
@@ -2235,21 +2291,35 @@ function sendBroadcast() {
 
 // ───────────────────── EXPORT CSV ───────────────────────────────
 function exportCSV(type) {
-  let headers=[], data=[];
+  // Helper: escape nilai CSV agar aman jika mengandung koma, kutip, atau newline
+  const esc = v => {
+    if (v === null || v === undefined) return '';
+    const s = String(v).replace(/\r?\n/g, ' ');
+    return (s.includes(',') || s.includes('"') || s.includes('\n'))
+      ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
   const maps = {
     barang    : { h:['Kode','Nama','Kategori','Satuan','H.Beli','H.Jual','Stok','Min Stok'], d:DB.barang.map(b=>[b.kode,b.nama,b.kategori,b.satuan,b.hbeli,b.hjual,b.stok,b.minStok]) },
     invoice   : { h:['No Invoice','Tanggal','Mitra','Sales','Total','Status','Jatuh Tempo'], d:DB.invoice.map(i=>[i.no,i.tgl,i.mitra,i.salesName,i.total,i.status,i.tempo]) },
     mitra     : { h:['Kode','Nama','Tipe','PIC','HP','Kota','Piutang'], d:DB.mitra.map(m=>[m.kode,m.nama,m.tipe,m.pic,m.hp,m.kota,m.piutang]) },
     stok      : { h:['Kode','Nama','Kategori','Masuk','Keluar','Stok','Min Stok'], d:DB.barang.map(b=>[b.kode,b.nama,b.kategori,b.masuk,b.keluar,b.stok,b.minStok]) },
     pengeluaran:{ h:['Tanggal','Keterangan','Kategori','Jumlah'], d:DB.pengeluaran.map(p=>[p.tgl,p.ket,p.kat,p.jml]) },
+    surat_jalan:{ h:['No SJ','No Invoice','Tanggal','Mitra','Sopir','Kendaraan','Status'], d:DB.surat_jalan.map(s=>[s.noSJ,s.noInvoice,s.tgl,s.mitra,s.sopir,s.kendaraan,s.status]) },
   };
+
   const m = maps[type]; if (!m) return;
-  const csv = [m.h.join(','),...m.d.map(r=>r.join(','))].join('\n');
-  const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const csv = [
+    m.h.map(esc).join(','),
+    ...m.d.map(row => row.map(esc).join(','))
+  ].join('\n');
+
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }); // BOM untuk Excel
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href=url; a.download=`BMS_${type}_${new Date().toISOString().slice(0,10)}.csv`; a.click();
-  addLog('export','Export CSV: '+type);
+  a.href = url; a.download = `BMS_${type}_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  URL.revokeObjectURL(url); // Bersihkan memory
+  addLog('export', 'Export CSV: ' + type);
   showToast(`📊 Export ${type} berhasil!`);
 }
 
@@ -2708,12 +2778,12 @@ function buildTrenBars(b, months) {
     DB.pembelian.filter(p => (p.namaBarang === b.nama || p.barang === b.nama) && p.tgl?.startsWith(m.key))
       .reduce((s, p) => s + (p.qty||0), 0)
   );
+  // FIX: filter null items dan pastikan perbandingan nama barang aman
   const keluarPerBulan = months.map(m =>
     DB.invoice
       .filter(inv => inv.tgl?.startsWith(m.key))
-      .flatMap(inv => inv.items||[])
-      .filter(it => it.nama === b.nama)
-      .reduce((s, it) => s + (it.qty||0), 0)
+      .flatMap(inv => (inv.items || []).filter(it => it && it.nama === b.nama))
+      .reduce((s, it) => s + (it.qty || 0), 0)
   );
   const maxVal = Math.max(...masukPerBulan, ...keluarPerBulan, 1);
 

@@ -76,6 +76,92 @@ let chatMessages = [];
 let chatOpen = false;
 let activeChatTab = 'messages';
 
+// ───────────────────── PAGINATION STATE ─────────────────────────
+const PAGE_SIZE = 25; // Item per halaman — bisa diubah
+const pagination = {
+  barang:  { page: 1, total: 0 },
+  invoice: { page: 1, total: 0 },
+  mitra:   { page: 1, total: 0 },
+  log:     { page: 1, total: 0 },
+};
+
+function resetPage(key) { if (pagination[key]) pagination[key].page = 1; }
+function goPage(key, dir) {
+  if (!pagination[key]) return;
+  const maxPage = Math.ceil(pagination[key].total / PAGE_SIZE);
+  pagination[key].page = Math.min(Math.max(1, pagination[key].page + dir), maxPage || 1);
+  if      (key === 'barang')  renderBarang();
+  else if (key === 'invoice') renderInvoice();
+  else if (key === 'mitra')   renderMitra();
+  else if (key === 'log')     renderLog();
+}
+
+function renderPagination(key, total) {
+  pagination[key].total = total;
+  const page    = pagination[key].page;
+  const maxPage = Math.ceil(total / PAGE_SIZE) || 1;
+  const from    = (page - 1) * PAGE_SIZE + 1;
+  const to      = Math.min(page * PAGE_SIZE, total);
+  // Cari container pagination yang sesuai
+  const el = document.getElementById(`pagination-${key}`);
+  if (!el) return;
+  if (total === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div class="pagination-wrap">
+      <span class="page-info">${from}–${to} dari ${total}</span>
+      <div class="page-btns">
+        <button class="page-btn" onclick="goPage('${key}',-1)" ${page<=1?'disabled':''}>
+          <i class="fas fa-chevron-left"></i>
+        </button>
+        <span class="page-current">${page} / ${maxPage}</span>
+        <button class="page-btn" onclick="goPage('${key}',1)" ${page>=maxPage?'disabled':''}>
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+    </div>`;
+}
+
+// ── FILTER STATE Invoice ─────────────────────────────────────────
+const invoiceFilter = { dari: '', sampai: '', status: '', metode: '' };
+
+function applyInvoiceFilter() {
+  invoiceFilter.dari    = document.getElementById('filter-inv-dari')?.value    || '';
+  invoiceFilter.sampai  = document.getElementById('filter-inv-sampai')?.value  || '';
+  invoiceFilter.status  = document.getElementById('filter-inv-status')?.value  || '';
+  invoiceFilter.metode  = document.getElementById('filter-inv-metode')?.value  || '';
+  resetPage('invoice');
+  renderInvoice();
+}
+
+function resetInvoiceFilter() {
+  ['filter-inv-dari','filter-inv-sampai','filter-inv-status','filter-inv-metode']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  invoiceFilter.dari = invoiceFilter.sampai = invoiceFilter.status = invoiceFilter.metode = '';
+  resetPage('invoice');
+  renderInvoice();
+}
+
+function getFilteredInvoices() {
+  let list = [...DB.invoice];
+  if (invoiceFilter.dari)   list = list.filter(i => i.tgl >= invoiceFilter.dari);
+  if (invoiceFilter.sampai) list = list.filter(i => i.tgl <= invoiceFilter.sampai);
+  if (invoiceFilter.status) list = list.filter(i => i.status === invoiceFilter.status);
+  if (invoiceFilter.metode) list = list.filter(i => i.metodeBayar === invoiceFilter.metode);
+  // Update info label
+  const info = document.getElementById('filter-inv-info');
+  const hasFilter = invoiceFilter.dari || invoiceFilter.sampai || invoiceFilter.status || invoiceFilter.metode;
+  if (info) info.textContent = hasFilter ? `${list.length} transaksi ditemukan` : '';
+  return list;
+}
+
+// ── FILTER STATE Laporan ─────────────────────────────────────────
+function resetLaporanFilter() {
+  ['filter-lap-dari','filter-lap-sampai'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  buildLaporanChart();
+}
+
 // ───────────────────── THEME ────────────────────────────────────
 function initTheme() {
   const saved = localStorage.getItem('bms_theme') || 'light';
@@ -532,7 +618,22 @@ function setupRealtimeListeners() {
     DB.log=s.docs.map(d=>({_id:d.id,...d.data()})); renderLog();
   });
   FS.onSnapshot(FS.query(FS.col('chat'),       FS.orderBy('_ts','asc'),  FS.limit(50)),  s => {
-    if(!s.empty) { DB.chat=s.docs.map(d=>({_id:d.id,...d.data()})); renderChatMessages(); }
+    if(!s.empty) {
+      const newMessages = s.docs.map(d=>({_id:d.id,...d.data()}));
+      // Putar notif suara jika ada pesan baru dari orang lain & chat sedang tutup
+      if (!chatOpen && newMessages.length > _lastChatCount) {
+        const latestMsg = newMessages[newMessages.length - 1];
+        const myUid = window.FA?.currentUser()?.uid;
+        if (latestMsg.uid !== myUid) {
+          playChatNotifSound();
+          const badge = document.getElementById('chat-unread-badge');
+          if (badge) { badge.style.display = ''; badge.textContent = '!'; }
+        }
+      }
+      _lastChatCount = newMessages.length;
+      DB.chat = newMessages;
+      renderChatMessages();
+    }
   });
   FS.onSnapshot(FS.query(FS.col('notifikasi'), FS.orderBy('_ts','desc'), FS.limit(50)), s => {
     if(!s.empty) { DB.notifikasi=s.docs.map(d=>({_id:d.id,...d.data()})); renderNotifications(); }
@@ -564,7 +665,12 @@ function renderLog() {
   const tbody = document.getElementById('tbody-log');
   if (!tbody) return;
   const icons = { login:'fa-sign-in-alt', tambah:'fa-plus', hapus:'fa-trash', invoice:'fa-file-invoice', stok:'fa-warehouse', chat:'fa-comment', edit:'fa-edit', export:'fa-download', setting:'fa-cog' };
-  tbody.innerHTML = DB.log.map((l,i) => `
+  // Pagination log
+  const total = DB.log.length;
+  const page  = pagination.log.page;
+  const start = (page - 1) * PAGE_SIZE;
+  const paged = DB.log.slice(start, start + PAGE_SIZE);
+  tbody.innerHTML = paged.map((l,i) => `
     <tr>
       <td><span class="badge badge-blue"><i class="fas ${icons[l.aksi]||'fa-circle'} me-1"></i>${l.aksi}</span></td>
       <td><strong>${l.user}</strong></td>
@@ -572,6 +678,7 @@ function renderLog() {
       <td>${l.detail}</td>
       <td style="color:var(--text-muted);font-size:12px">${new Date(l.waktu).toLocaleString('id-ID')}</td>
     </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted)">📋 Log kosong</td></tr>';
+  renderPagination('log', total);
 }
 
 async function clearLog() {
@@ -633,7 +740,14 @@ function renderBarang() {
   const badge = document.getElementById('total-barang-badge');
   if (badge) badge.textContent = DB.barang.length + ' Item';
   const canEdit = currentUser && (currentUser.role==='owner'||currentUser.role==='admin');
-  tbody.innerHTML = DB.barang.map((b,i) => {
+  // Pagination
+  const all   = DB.barang;
+  const total = all.length;
+  const page  = pagination.barang.page;
+  const start = (page - 1) * PAGE_SIZE;
+  const paged = all.slice(start, start + PAGE_SIZE);
+  tbody.innerHTML = paged.map((b,pi) => {
+    const i = start + pi; // indeks asli di DB
     const fotoSrc = (b.foto && b.foto.length) ? b.foto[0] : null;
     const fotoEl  = fotoSrc
       ? `<img src="${fotoSrc}" style="width:44px;height:44px;border-radius:10px;object-fit:cover;border:2px solid var(--border)">`
@@ -654,13 +768,21 @@ function renderBarang() {
       </div>` : '<span style="color:var(--text-muted)">—</span>'}</td>
     </tr>`;
   }).join('');
+  renderPagination('barang', total);
 }
 
 function renderInvoice() {
   const tbody = document.getElementById('tbody-invoice');
   if (!tbody) return;
   const canEdit = currentUser && (currentUser.role==='owner'||currentUser.role==='admin');
-  tbody.innerHTML = DB.invoice.map((inv,i) => {
+  // Terapkan filter & pagination
+  const filtered = getFilteredInvoices();
+  const total    = filtered.length;
+  const page     = pagination.invoice.page;
+  const start    = (page - 1) * PAGE_SIZE;
+  const paged    = filtered.slice(start, start + PAGE_SIZE);
+  tbody.innerHTML = paged.map((inv,pi) => {
+    const i = DB.invoice.indexOf(inv); // indeks asli untuk tombol aksi
     const metodeBayar = inv.metodeBayar || 'Tempo';
     const badgeMetode = metodeBayar === 'Tunai'
       ? 'badge-green' : metodeBayar === 'Transfer'
@@ -678,14 +800,15 @@ function renderInvoice() {
       <td>
         <div style="display:flex;gap:6px">
           <button class="btn btn-outline btn-icon btn-sm" onclick="showInvoicePreview(${i})" title="Preview"><i class="fas fa-eye"></i></button>
+          ${canEdit?`<button class="btn btn-primary btn-icon btn-sm" onclick="editInvoice(${i})" title="Edit Status/Catatan"><i class="fas fa-edit"></i></button>`:''}
           ${canEdit&&inv.status!=='Lunas'?`<button class="btn btn-success btn-icon btn-sm" onclick="tandaiLunas(${i})" title="Tandai Lunas"><i class="fas fa-check"></i></button>`:''}
-          <button class="btn btn-primary btn-icon btn-sm" onclick="window.print()" title="Cetak"><i class="fas fa-print"></i></button>
           <button class="btn btn-accent btn-icon btn-sm" onclick="generateSuratJalan('${inv._id}')" title="Generate Surat Jalan"><i class="fas fa-truck"></i></button>
           ${canEdit?`<button class="btn btn-danger btn-icon btn-sm" onclick="hapusTransaksi(${i})" title="Hapus"><i class="fas fa-trash"></i></button>`:''}
         </div>
       </td>
     </tr>`;
   }).join('') || '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text-muted)">Belum ada transaksi</td></tr>';
+  renderPagination('invoice', total);
   renderInvoiceStats();
 }
 
@@ -724,7 +847,13 @@ function renderStok() {
 function renderMitra() {
   const tbody = document.getElementById('tbody-mitra');
   if (!tbody) return;
-  tbody.innerHTML = DB.mitra.map((m,i) => `
+  const total = DB.mitra.length;
+  const page  = pagination.mitra.page;
+  const start = (page - 1) * PAGE_SIZE;
+  const paged = DB.mitra.slice(start, start + PAGE_SIZE);
+  tbody.innerHTML = paged.map((m,pi) => {
+    const i = start + pi;
+    return `
     <tr>
       <td><code style="background:var(--bg);padding:2px 8px;border-radius:6px;font-size:12px">${m.kode}</code></td>
       <td><strong>${m.nama}</strong></td>
@@ -736,7 +865,9 @@ function renderMitra() {
         <button class="btn btn-outline btn-icon btn-sm" onclick="chatMitra('${m.nama}')" title="Chat"><i class="fas fa-comment"></i></button>
         <button class="btn btn-danger btn-icon btn-sm" onclick="hapusMitra(${i})" title="Hapus"><i class="fas fa-trash"></i></button>
       </div></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
+  renderPagination('mitra', total);
 }
 
 function renderPengeluaran() {
@@ -811,27 +942,56 @@ function buildMainChart() {
 }
 
 function buildLaporanChart() {
-  // Trend 2024–2035 berdasarkan invoice nyata
+  // ── Perbarui dropdown tahun secara dinamis dari data invoice ──
   const yearSel = document.getElementById('laporan-year-sel');
-  const year = yearSel ? parseInt(yearSel.value) : new Date().getFullYear();
+  if (yearSel) {
+    const currentYear = new Date().getFullYear();
+    const invoiceYears = [...new Set(DB.invoice.map(inv => inv.tgl?.slice(0,4)).filter(Boolean).map(Number))];
+    const allYears = [...new Set([...invoiceYears, currentYear - 1, currentYear, currentYear + 1])].sort();
+    const selectedYear = yearSel.value ? parseInt(yearSel.value) : currentYear;
+    yearSel.innerHTML = allYears.map(y => `<option value="${y}" ${y===selectedYear?'selected':''}>${y}</option>`).join('');
+  }
+  // Cek filter rentang tanggal
+  const lapDari   = document.getElementById('filter-lap-dari')?.value   || '';
+  const lapSampai = document.getElementById('filter-lap-sampai')?.value || '';
+  const hasDateFilter = lapDari || lapSampai;
+
+  // Trend berdasarkan invoice nyata
+  const year   = yearSel ? parseInt(yearSel.value) : new Date().getFullYear();
   const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+  // Filter invoice berdasarkan rentang tanggal jika aktif
+  let invoicePool = DB.invoice;
+  if (hasDateFilter) {
+    invoicePool = DB.invoice.filter(inv => {
+      if (lapDari   && inv.tgl < lapDari)   return false;
+      if (lapSampai && inv.tgl > lapSampai) return false;
+      return true;
+    });
+    const infoEl = document.getElementById('filter-lap-info');
+    if (infoEl) infoEl.textContent = invoicePool.length + ' transaksi dalam rentang ini';
+  } else {
+    const infoEl = document.getElementById('filter-lap-info');
+    if (infoEl) infoEl.textContent = '';
+  }
   const data = months.map((_,mi) => {
     const key = `${year}-${String(mi+1).padStart(2,'0')}`;
-    return DB.invoice.filter(inv => inv.tgl?.startsWith(key)).reduce((s,inv)=>s+(inv.total||0),0);
+    return invoicePool.filter(inv => inv.tgl?.startsWith(key)).reduce((s,inv)=>s+(inv.total||0),0);
   }).map(v => Math.round(v/1000000));
   const max = Math.max(...data, 1);
   const el  = document.getElementById('laporan-chart');
   if (!el) return;
   const totalYear = data.reduce((s,v)=>s+v,0);
+  const maxVal    = Math.max(...data);
   el.innerHTML = data.map((v,i) => `
     <div class="bar-wrap">
-      <div class="bar" style="height:${Math.max(Math.round((v/max)*100),2)}%;${v===Math.max(...data)?'background:linear-gradient(180deg,var(--accent),#f97316)':''}">
+      <div class="bar" style="height:${Math.max(Math.round((v/max)*100),2)}%;${v===maxVal?'background:linear-gradient(180deg,var(--accent),#f97316)':''}">
         <div class="bar-tooltip">Rp ${v} Jt</div>
       </div>
       <div class="bar-label">${months[i]}</div>
     </div>`).join('');
   const totalEl = document.getElementById('laporan-total-year');
-  if (totalEl) totalEl.textContent = 'Total ' + year + ': Rp ' + totalYear.toLocaleString('id-ID') + ' Jt';
+  const filterNote = hasDateFilter ? ' (filter aktif)' : '';
+  if (totalEl) totalEl.textContent = 'Total ' + year + filterNote + ': Rp ' + totalYear.toLocaleString('id-ID') + ' Jt';
 }
 
 // ───────────────────── SALES DASHBOARD ──────────────────────────
@@ -1114,6 +1274,7 @@ function renderSettings() {
   safe('set-company-npwp',  c.npwp);
   safe('set-company-rek',   c.rekening);
   safe('set-bonus-rate', appConfig?.bonusRate||2);
+  safe('set-ppn-rate',   appConfig?.ppnRate ?? 11);
   // Load kategori dari appConfig cloud jika ada
   if (appConfig?.kategori?.length) {
     localStorage.setItem('bms_kategori', JSON.stringify(appConfig.kategori));
@@ -1229,9 +1390,11 @@ async function saveCompanyProfile() {
     npwp: g('set-company-npwp'), rekening: g('set-company-rek'),
   };
   const bonusRate = parseInt(document.getElementById('set-bonus-rate')?.value)||2;
+  const ppnRate   = parseInt(document.getElementById('set-ppn-rate')?.value) ?? 11;
   if (!appConfig) appConfig = {};
   appConfig.company   = company;
   appConfig.bonusRate = bonusRate;
+  appConfig.ppnRate   = ppnRate;
   appConfig.kategori  = getKategoriList();
   try {
     await window.FS.setDoc(window.FS.docRef('test','appConfig'), appConfig);
@@ -1691,7 +1854,12 @@ async function hapusBarang(i) {
 function previewFoto(event) {
   const preview = document.getElementById('foto-preview');
   preview.innerHTML = '';
+  const MAX_SIZE_MB = 1;
   Array.from(event.target.files).slice(0,4).forEach(file => {
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      showToast(`⚠️ "${file.name}" terlalu besar (maks ${MAX_SIZE_MB}MB). Gunakan foto yang lebih kecil.`, 'warning');
+      return;
+    }
     const reader = new FileReader();
     reader.onload = e => {
       const img = document.createElement('img');
@@ -1789,80 +1957,28 @@ function hitungTotal() {
   const subtotal = items.reduce((s,i)=>s+(i.total||0),0);
   const diskon   = parseFloat(document.getElementById('inv-diskon')?.value)||0;
   const afterD   = subtotal*(1-diskon/100);
-  const ppn      = afterD*0.11;
+  const ppnRate  = appConfig?.ppnRate ?? 11;
+  const ppn      = afterD*(ppnRate/100);
   const total    = afterD+ppn;
   const safe = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
   safe('inv-subtotal','Rp '+subtotal.toLocaleString('id-ID'));
   safe('inv-ppn',     'Rp '+Math.round(ppn).toLocaleString('id-ID'));
   safe('inv-total',   'Rp '+Math.round(total).toLocaleString('id-ID'));
+  // Update label PPN agar menampilkan persentase aktual
+  const ppnLabel = document.getElementById('inv-ppn-label');
+  if (ppnLabel) ppnLabel.textContent = `PPN ${ppnRate}%`;
 }
 
 async function hapusTransaksi(i) {
   const inv = DB.invoice[i];
   if (!inv) return;
-
-  // Informasikan dampak rollback stok kepada user
-  const itemList = (inv.items || []).filter(Boolean)
-    .map(it => `• ${it.nama}: +${it.qty} ${it.satuan||''}`)
-    .join('\n');
-  const rollbackInfo = itemList
-    ? `\n\nStok berikut akan DIKEMBALIKAN:\n${itemList}`
-    : '';
-
-  if (!confirm(`Hapus transaksi ${inv.no}?\nMitra: ${inv.mitra} — Rp ${(inv.total||0).toLocaleString('id-ID')}${rollbackInfo}\n\n⚠️ Tindakan ini permanen!`)) return;
-
+  if (!confirm(`Hapus transaksi ${inv.no}?`)) return;
   try {
-    // 1. Rollback stok untuk setiap item di transaksi ini
-    const rollbackErrors = [];
-    for (const item of (inv.items || []).filter(Boolean)) {
-      if (!item.nama) continue;
-      const b = DB.barang.find(b => b.nama === item.nama);
-      if (b && b._id) {
-        const newStok   = (b.stok || 0) + item.qty;
-        const newKeluar = Math.max(0, (b.keluar || 0) - item.qty);
-        try {
-          await window.FS.updateDoc(window.FS.docRef('barang', b._id), {
-            stok  : newStok,
-            keluar: newKeluar,
-          });
-          b.stok   = newStok;
-          b.keluar = newKeluar;
-        } catch(e) {
-          rollbackErrors.push(item.nama);
-          // Tetap update lokal walau Firestore error
-          b.stok   = (b.stok || 0) + item.qty;
-          b.keluar = Math.max(0, (b.keluar || 0) - item.qty);
-        }
-      }
-    }
-
-    // 2. Hapus invoice dari Firestore
     if (inv._id) await window.FS.deleteDoc(window.FS.docRef('invoice', inv._id));
-    else { DB.invoice.splice(i, 1); renderInvoice(); }
-
-    // 3. Log & notifikasi
-    addLog('hapus', `Hapus transaksi: ${inv.no} (stok ${inv.items?.length || 0} item dikembalikan)`);
-
-    if (rollbackErrors.length) {
-      showToast(`🗑️ Transaksi dihapus. ⚠️ Gagal rollback stok: ${rollbackErrors.join(', ')}`, 'warning');
-    } else {
-      showToast('🗑️ Transaksi dihapus & stok dikembalikan!');
-    }
-
-    renderBarang(); renderStok(); renderStokKritis();
-  } catch(e) {
-    // Offline fallback — tetap rollback stok lokal
-    for (const item of (inv.items || []).filter(Boolean)) {
-      const b = DB.barang.find(b => b.nama === item.nama);
-      if (b) {
-        b.stok   = (b.stok || 0) + item.qty;
-        b.keluar = Math.max(0, (b.keluar || 0) - item.qty);
-      }
-    }
-    DB.invoice.splice(i, 1);
-    renderInvoice(); renderBarang(); renderStok();
-    showToast('🗑️ Transaksi dihapus & stok dikembalikan (offline)');
-  }
+    else { DB.invoice.splice(i,1); renderInvoice(); }
+    addLog('hapus','Hapus transaksi: '+inv.no);
+    showToast('🗑️ Transaksi dihapus!');
+  } catch(e) { DB.invoice.splice(i,1); renderInvoice(); showToast('🗑️ Transaksi dihapus (offline)'); }
 }
 
 async function simpanInvoice() {
@@ -1884,7 +2000,8 @@ async function simpanInvoice() {
   const subtotal   = items.reduce((s,i)=>s+i.total,0);
   const diskon     = parseFloat(document.getElementById('inv-diskon')?.value)||0;
   const afterD     = subtotal*(1-diskon/100);
-  const ppn        = afterD*0.11;
+  const ppnRate    = appConfig?.ppnRate ?? 11;
+  const ppn        = afterD*(ppnRate/100);
   const total      = Math.round(afterD+ppn);
   const metodeBayar = document.getElementById('inv-bayar')?.value || 'Tempo';
   // Tunai / Transfer langsung Lunas, Tempo = Belum Lunas
@@ -1898,6 +2015,8 @@ async function simpanInvoice() {
     metodeBayar,
     mitra, total, status,
     items, diskon,
+    ppnRate     : appConfig?.ppnRate ?? 11,
+    catatan     : document.getElementById('inv-catatan')?.value.trim() || '',
     salesName   : currentUser?.name||'',
     salesUid    : currentUser?.uid||'',
   };
@@ -1932,6 +2051,7 @@ async function simpanInvoice() {
   invItems = [];
   document.getElementById('inv-items').innerHTML = '';
   document.getElementById('inv-no').value = `TRX-${new Date().getFullYear()}-${invCounter}`;
+  const catatanEl = document.getElementById('inv-catatan'); if(catatanEl) catatanEl.value = '';
   hitungTotal();
   renderBarang(); renderStok(); renderStokKritis();
 }
@@ -1946,14 +2066,54 @@ async function tandaiLunas(i) {
   showToast('✅ Invoice ditandai Lunas!');
 }
 
+function editInvoice(i) {
+  const inv = DB.invoice[i];
+  if (!inv) return;
+  const safe = (id,v) => { const el=document.getElementById(id); if(el) el.value=v||''; };
+  safe('ei-idx',     i);
+  safe('ei-no',      inv.no);
+  safe('ei-tempo',   inv.tempo !== '-' ? inv.tempo : '');
+  safe('ei-catatan', inv.catatan || '');
+  const statusEl = document.getElementById('ei-status');
+  if (statusEl) statusEl.value = inv.status || 'Belum Lunas';
+  openModal('modal-edit-invoice');
+}
+
+async function simpanEditInvoice() {
+  const i      = parseInt(document.getElementById('ei-idx')?.value);
+  const inv    = DB.invoice[i];
+  if (!inv) return;
+  const status  = document.getElementById('ei-status')?.value;
+  const tempo   = document.getElementById('ei-tempo')?.value || '-';
+  const catatan = document.getElementById('ei-catatan')?.value.trim() || '';
+  const updates = { status, tempo, catatan };
+  try {
+    if (inv._id) {
+      await window.FS.updateDoc(window.FS.docRef('invoice', inv._id), updates);
+    } else {
+      Object.assign(DB.invoice[i], updates);
+      renderInvoice();
+    }
+    addLog('edit', `Edit invoice ${inv.no}: status → ${status}`);
+    showToast('✅ Invoice berhasil diupdate!');
+  } catch(e) {
+    Object.assign(DB.invoice[i], updates);
+    renderInvoice();
+    showToast('✅ Invoice diupdate (offline)');
+  }
+  closeModal('modal-edit-invoice');
+}
+
 function previewInvoice() {
   const mitra = document.getElementById('inv-mitra')?.value||'Nama Mitra';
   const items = invItems.filter(Boolean);
   const subtotal = items.reduce((s,i)=>s+(i.total||0),0);
   const diskon   = parseFloat(document.getElementById('inv-diskon')?.value)||0;
   const afterD   = subtotal*(1-diskon/100);
-  const ppn      = afterD*0.11;
+  const ppnRate  = appConfig?.ppnRate ?? 11;
+  const ppn      = afterD*(ppnRate/100);
   const total    = afterD+ppn;
+  const catatan  = document.getElementById('inv-catatan')?.value.trim() || '';
   const co = appConfig?.company || {};
   document.getElementById('invoice-preview-content').innerHTML = `
     <div class="invoice-header">
@@ -1978,9 +2138,10 @@ function previewInvoice() {
     <div class="invoice-totals"><table>
       <tr><td>Subtotal</td><td style="text-align:right">Rp ${subtotal.toLocaleString('id-ID')}</td></tr>
       ${diskon>0?`<tr><td>Diskon (${diskon}%)</td><td style="text-align:right;color:var(--danger)">- Rp ${Math.round(subtotal*diskon/100).toLocaleString('id-ID')}</td></tr>`:''}
-      <tr><td>PPN 11%</td><td style="text-align:right">Rp ${Math.round(ppn).toLocaleString('id-ID')}</td></tr>
+      <tr><td>PPN ${ppnRate}%</td><td style="text-align:right">Rp ${Math.round(ppn).toLocaleString('id-ID')}</td></tr>
       <tr class="total-row"><td>TOTAL</td><td style="text-align:right">Rp ${Math.round(total).toLocaleString('id-ID')}</td></tr>
     </table></div>
+    ${catatan ? `<div class="invoice-catatan"><strong>Catatan:</strong> ${catatan}</div>` : ''}
     <div class="invoice-footer">
       <p>Terima kasih atas kepercayaan Anda berbelanja di ${co.nama||"Baitul Ma'mur Syafaah"}</p>
       <p>Pembayaran: ${co.rekening||'BCA 123-456-7890 a/n Baitul Mamur Syafaah'}</p>
@@ -2023,7 +2184,8 @@ function showInvoicePreview(i) {
   const subtotal   = inv.items ? inv.items.filter(Boolean).reduce((s,it)=>s+(it.total||0),0) : inv.total;
   const diskon     = inv.diskon || 0;
   const afterD     = subtotal * (1 - diskon/100);
-  const ppn        = afterD * 0.11;
+  const ppnRate    = inv.ppnRate ?? appConfig?.ppnRate ?? 11;
+  const ppn        = afterD * (ppnRate/100);
 
   document.getElementById('invoice-preview-content').innerHTML = `
     <div class="invoice-header">
@@ -2058,10 +2220,12 @@ function showInvoicePreview(i) {
       <table>
         <tr><td>Subtotal</td><td style="text-align:right">Rp ${subtotal.toLocaleString('id-ID')}</td></tr>
         ${diskon > 0 ? `<tr><td>Diskon (${diskon}%)</td><td style="text-align:right;color:#dc2626">- Rp ${Math.round(subtotal*diskon/100).toLocaleString('id-ID')}</td></tr>` : ''}
-        <tr><td>PPN 11%</td><td style="text-align:right">Rp ${Math.round(ppn).toLocaleString('id-ID')}</td></tr>
+        <tr><td>PPN ${ppnRate}%</td><td style="text-align:right">Rp ${Math.round(ppn).toLocaleString('id-ID')}</td></tr>
         <tr class="total-row"><td>TOTAL</td><td style="text-align:right">Rp ${(inv.total||0).toLocaleString('id-ID')}</td></tr>
       </table>
     </div>
+
+    ${inv.catatan ? `<div class="invoice-catatan"><strong>Catatan:</strong> ${inv.catatan}</div>` : ''}
 
     <div class="invoice-footer">
       <p>Pembayaran ke: <strong>${rek}</strong></p>
@@ -2124,12 +2288,13 @@ async function simpanMitra() {
     pic    : document.getElementById('m-pic')?.value||'',
     hp     : document.getElementById('m-hp')?.value||'',
     kota   : document.getElementById('m-kota')?.value||'',
+    alamat : document.getElementById('m-alamat')?.value.trim()||'',
     piutang: 0, status:'Aktif',
   };
   try { await window.FS.addDoc(window.FS.col('mitra'),data); addLog('tambah','Tambah mitra: '+nama); showToast('✅ Mitra tersimpan ke cloud!'); }
   catch(e) { DB.mitra.push(data); renderMitra(); showToast('✅ Mitra ditambahkan (offline)'); }
   fillDropdowns(); closeModal('modal-mitra');
-  const el=document.getElementById('m-nama'); if(el) el.value='';
+  ['m-nama','m-pic','m-hp','m-kota','m-alamat'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
 }
 
 async function hapusMitra(i) {
@@ -2226,6 +2391,25 @@ function switchChatTab(tab) {
   document.getElementById('chat-input-area').style.display       = tab==='messages'?'flex':'none';
 }
 
+// ── CHAT NOTIFICATION SOUND ──────────────────────────────────────
+let _lastChatCount = 0;
+function playChatNotifSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.setValueAtTime(660, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.35);
+  } catch(e) { /* AudioContext tidak tersedia */ }
+}
+
 function renderChatMessages() {
   const body = document.getElementById('chat-messages');
   if (!body) return;
@@ -2291,36 +2475,52 @@ function sendBroadcast() {
 
 // ───────────────────── EXPORT CSV ───────────────────────────────
 function exportCSV(type) {
-  // Helper: escape nilai CSV agar aman jika mengandung koma, kutip, atau newline
-  const esc = v => {
-    if (v === null || v === undefined) return '';
-    const s = String(v).replace(/\r?\n/g, ' ');
-    return (s.includes(',') || s.includes('"') || s.includes('\n'))
-      ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-
+  let headers=[], data=[];
   const maps = {
     barang    : { h:['Kode','Nama','Kategori','Satuan','H.Beli','H.Jual','Stok','Min Stok'], d:DB.barang.map(b=>[b.kode,b.nama,b.kategori,b.satuan,b.hbeli,b.hjual,b.stok,b.minStok]) },
-    invoice   : { h:['No Invoice','Tanggal','Mitra','Sales','Total','Status','Jatuh Tempo'], d:DB.invoice.map(i=>[i.no,i.tgl,i.mitra,i.salesName,i.total,i.status,i.tempo]) },
-    mitra     : { h:['Kode','Nama','Tipe','PIC','HP','Kota','Piutang'], d:DB.mitra.map(m=>[m.kode,m.nama,m.tipe,m.pic,m.hp,m.kota,m.piutang]) },
+    invoice   : { h:['No Invoice','Tanggal','Mitra','Sales','Total','Status','Jatuh Tempo','Catatan'], d:DB.invoice.map(i=>[i.no,i.tgl,i.mitra,i.salesName,i.total,i.status,i.tempo,i.catatan||'']) },
+    mitra     : { h:['Kode','Nama','Tipe','PIC','HP','Kota','Alamat','Piutang'], d:DB.mitra.map(m=>[m.kode,m.nama,m.tipe,m.pic,m.hp,m.kota,m.alamat||'',m.piutang]) },
     stok      : { h:['Kode','Nama','Kategori','Masuk','Keluar','Stok','Min Stok'], d:DB.barang.map(b=>[b.kode,b.nama,b.kategori,b.masuk,b.keluar,b.stok,b.minStok]) },
     pengeluaran:{ h:['Tanggal','Keterangan','Kategori','Jumlah'], d:DB.pengeluaran.map(p=>[p.tgl,p.ket,p.kat,p.jml]) },
-    surat_jalan:{ h:['No SJ','No Invoice','Tanggal','Mitra','Sopir','Kendaraan','Status'], d:DB.surat_jalan.map(s=>[s.noSJ,s.noInvoice,s.tgl,s.mitra,s.sopir,s.kendaraan,s.status]) },
+    surat_jalan:{ h:['No SJ','No Invoice','Tanggal','Mitra','Sopir','Kendaraan','Status'], d:DB.surat_jalan.map(sj=>[sj.noSJ,sj.noInvoice,sj.tgl,sj.mitra,sj.sopir,sj.kendaraan,sj.status]) },
   };
-
   const m = maps[type]; if (!m) return;
-  const csv = [
-    m.h.map(esc).join(','),
-    ...m.d.map(row => row.map(esc).join(','))
-  ].join('\n');
-
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }); // BOM untuk Excel
+  const csv = [m.h.join(','),...m.d.map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(','))].join('\n');
+  const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href = url; a.download = `BMS_${type}_${new Date().toISOString().slice(0,10)}.csv`; a.click();
-  URL.revokeObjectURL(url); // Bersihkan memory
-  addLog('export', 'Export CSV: ' + type);
-  showToast(`📊 Export ${type} berhasil!`);
+  a.href=url; a.download=`BMS_${type}_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  addLog('export','Export CSV: '+type);
+  showToast(`📊 Export ${type} CSV berhasil!`);
+}
+
+// ───────────────────── EXPORT EXCEL ──────────────────────────────
+function exportExcel(type) {
+  if (typeof XLSX === 'undefined') {
+    showToast('❌ Library Excel belum siap. Coba lagi.', 'error'); return;
+  }
+  const maps = {
+    barang    : { sheet:'Data Barang',    h:['Kode','Nama','Kategori','Satuan','H.Beli','H.Jual','Stok','Min Stok'], d:DB.barang.map(b=>[b.kode,b.nama,b.kategori,b.satuan,b.hbeli||0,b.hjual||0,b.stok||0,b.minStok||0]) },
+    invoice   : { sheet:'Transaksi',      h:['No Invoice','Tanggal','Mitra','Sales','Total','Status','Jatuh Tempo','Catatan'], d:DB.invoice.map(i=>[i.no,i.tgl,i.mitra,i.salesName||'',i.total||0,i.status,i.tempo||'-',i.catatan||'']) },
+    mitra     : { sheet:'Mitra Bisnis',   h:['Kode','Nama','Tipe','PIC','HP','Kota','Alamat','Piutang'], d:DB.mitra.map(m=>[m.kode,m.nama,m.tipe,m.pic||'',m.hp||'',m.kota||'',m.alamat||'',m.piutang||0]) },
+    stok      : { sheet:'Info Stok',      h:['Kode','Nama','Kategori','Masuk','Keluar','Stok','Min Stok'], d:DB.barang.map(b=>[b.kode,b.nama,b.kategori,b.masuk||0,b.keluar||0,b.stok||0,b.minStok||0]) },
+    pengeluaran:{ sheet:'Pengeluaran',    h:['Tanggal','Keterangan','Kategori','Jumlah'], d:DB.pengeluaran.map(p=>[p.tgl,p.ket,p.kat,p.jml||0]) },
+    surat_jalan:{ sheet:'Surat Jalan',    h:['No SJ','No Invoice','Tanggal','Mitra','Sopir','Kendaraan','Status'], d:DB.surat_jalan.map(sj=>[sj.noSJ,sj.noInvoice,sj.tgl,sj.mitra,sj.sopir||'',sj.kendaraan||'',sj.status||'']) },
+  };
+  const m = maps[type]; if (!m) return;
+  const wb = XLSX.utils.book_new();
+  const wsData = [m.h, ...m.d];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  // Style header row (kolom lebar otomatis)
+  const colWidths = m.h.map((hdr, ci) => {
+    const maxLen = Math.max(hdr.length, ...m.d.map(row => String(row[ci]||'').length));
+    return { wch: Math.min(maxLen + 2, 40) };
+  });
+  ws['!cols'] = colWidths;
+  XLSX.utils.book_append_sheet(wb, ws, m.sheet);
+  XLSX.writeFile(wb, `BMS_${type}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  addLog('export', 'Export Excel: ' + type);
+  showToast(`📊 Export ${type} Excel berhasil!`);
 }
 
 // ───────────────────── SEARCH ───────────────────────────────────
@@ -2331,11 +2531,27 @@ function initSearch() {
     { inputId:'search-mitra',    tbodyId:'tbody-mitra'    },
     { inputId:'search-stok',     tbodyId:'tbody-stok'     },
   ];
+  const keyToPagination = {
+    'search-barang':  'barang',
+    'search-invoice': 'invoice',
+    'search-mitra':   'mitra',
+    'search-stok':    null, // stok tidak paginasi
+  };
   searchMap.forEach(({ inputId, tbodyId }) => {
     const inp = document.getElementById(inputId);
     if (!inp) return;
     inp.addEventListener('input', e => {
       const q = e.target.value.toLowerCase();
+      // Reset pagination ke halaman 1 saat ada pencarian
+      const pKey = keyToPagination[inputId];
+      if (pKey && pagination[pKey]) {
+        pagination[pKey].page = 1;
+        // Re-render dengan filter baru
+        if (pKey === 'barang')  { renderBarang(); return; }
+        if (pKey === 'invoice') { renderInvoice(); return; }
+        if (pKey === 'mitra')   { renderMitra(); return; }
+      }
+      // Fallback: filter DOM langsung (untuk stok)
       document.querySelectorAll(`#${tbodyId} tr`).forEach(r => {
         r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
       });
@@ -2522,7 +2738,23 @@ function renderAll() {
   // Cek & push notif stok kritis ke Firestore (async, tidak blocking)
   checkStokKritisNotif().then(() => renderNotifications()).catch(() => renderNotifications());
   checkAndPushBrowserNotif();
+  // Expose data untuk kompatibilitas dengan helper di index.html
+  window.appData = DB;
 }
+
+// Expose updateInvoiceData untuk modal edit invoice dari index.html scripts
+window.updateInvoiceData = async function(invId, updates) {
+  try {
+    if (invId) await window.FS.updateDoc(window.FS.docRef('invoice', invId), updates);
+    const inv = DB.invoice.find(i => i._id === invId);
+    if (inv) Object.assign(inv, updates);
+    addLog('edit', `Edit invoice ${invId}: ${JSON.stringify(updates)}`);
+    renderInvoice();
+    showToast('✅ Transaksi berhasil diperbarui');
+  } catch(e) {
+    showToast('❌ Gagal update: ' + e.message, 'error');
+  }
+};
 
 // ================================================================
 //  BMS v8.0 — FITUR BARU
@@ -2778,12 +3010,12 @@ function buildTrenBars(b, months) {
     DB.pembelian.filter(p => (p.namaBarang === b.nama || p.barang === b.nama) && p.tgl?.startsWith(m.key))
       .reduce((s, p) => s + (p.qty||0), 0)
   );
-  // FIX: filter null items dan pastikan perbandingan nama barang aman
   const keluarPerBulan = months.map(m =>
     DB.invoice
       .filter(inv => inv.tgl?.startsWith(m.key))
-      .flatMap(inv => (inv.items || []).filter(it => it && it.nama === b.nama))
-      .reduce((s, it) => s + (it.qty || 0), 0)
+      .flatMap(inv => inv.items||[])
+      .filter(it => it.nama === b.nama)
+      .reduce((s, it) => s + (it.qty||0), 0)
   );
   const maxVal = Math.max(...masukPerBulan, ...keluarPerBulan, 1);
 

@@ -14,8 +14,40 @@
 <title>BMS — Baitul Ma'mur Syafaah</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Syne:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="assets/css/style.css">
 <script type="module" src="assets/js/firebase.js"></script>
+<style>
+/* ── Pagination ─────────────────────────────────────────────── */
+.pagination-container { padding: 12px 20px 4px; }
+.pagination-wrap {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 8px;
+}
+.page-info {
+  font-size: 12.5px; color: var(--text-muted); font-weight: 500;
+}
+.page-btns {
+  display: flex; align-items: center; gap: 6px;
+}
+.page-btn {
+  width: 32px; height: 32px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--text); cursor: pointer; font-size: 12px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.page-btn:hover:not(:disabled) {
+  background: var(--primary-mid); color: #fff; border-color: var(--primary-mid);
+}
+.page-btn:disabled { opacity: 0.35; cursor: default; }
+.page-current {
+  font-size: 13px; font-weight: 700; color: var(--text); min-width: 52px;
+  text-align: center;
+}
+/* ── Filter Bar ─────────────────────────────────────────────── */
+.filter-bar label { font-size: 11.5px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; display: block; }
+</style>
 </head>
 <body>
 
@@ -282,7 +314,8 @@
             <span class="badge badge-blue" id="total-barang-badge">0 Item</span>
           </div>
           <div style="display:flex;gap:10px">
-            <button class="btn btn-outline btn-sm" onclick="exportCSV('barang')"><i class="fas fa-download"></i> Export CSV</button>
+            <button class="btn btn-outline btn-sm" onclick="exportCSV('barang')"><i class="fas fa-download"></i> CSV</button>
+            <button class="btn btn-outline btn-sm" style="color:var(--accent2);border-color:var(--accent2)" onclick="exportExcel('barang')"><i class="fas fa-file-excel"></i> Excel</button>
             <button class="btn btn-primary" id="btn-tambah-barang" onclick="openModal('modal-barang')"><i class="fas fa-plus"></i> Tambah Barang</button>
           </div>
         </div>
@@ -293,6 +326,7 @@
               <tbody id="tbody-barang"></tbody>
             </table>
           </div>
+          <div id="pagination-barang" class="pagination-container"></div>
         </div>
       </div>
 
@@ -303,10 +337,50 @@
             <div class="search-bar"><i class="fas fa-search"></i><input type="text" id="search-invoice" placeholder="Cari no transaksi, mitra, sales..."></div>
           </div>
           <div style="display:flex;gap:10px">
-            <button class="btn btn-outline btn-sm" onclick="exportCSV('invoice')"><i class="fas fa-download"></i> Export</button>
+            <button class="btn btn-outline btn-sm" onclick="exportCSV('invoice')"><i class="fas fa-download"></i> CSV</button>
+            <button class="btn btn-outline btn-sm" style="color:var(--accent2);border-color:var(--accent2)" onclick="exportExcel('invoice')"><i class="fas fa-file-excel"></i> Excel</button>
             <button class="btn btn-primary" onclick="openModal('modal-invoice')"><i class="fas fa-plus"></i> Buat Transaksi</button>
           </div>
         </div>
+        <!-- Filter Tanggal & Status Transaksi -->
+        <div class="filter-bar" id="invoice-filter-bar" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin-bottom:14px">
+          <div class="field" style="margin:0;min-width:140px;flex:1">
+            <label style="font-size:11.5px;font-weight:700;color:var(--text-muted);margin-bottom:4px;display:block">DARI TANGGAL</label>
+            <input type="date" id="filter-inv-dari" oninput="applyInvoiceFilter()" style="width:100%;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px">
+          </div>
+          <div class="field" style="margin:0;min-width:140px;flex:1">
+            <label style="font-size:11.5px;font-weight:700;color:var(--text-muted);margin-bottom:4px;display:block">SAMPAI TANGGAL</label>
+            <input type="date" id="filter-inv-sampai" oninput="applyInvoiceFilter()" style="width:100%;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px">
+          </div>
+          <div class="field" style="margin:0;min-width:130px;flex:1">
+            <label style="font-size:11.5px;font-weight:700;color:var(--text-muted);margin-bottom:4px;display:block">STATUS</label>
+            <select id="filter-inv-status" onchange="applyInvoiceFilter()" style="width:100%;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px">
+              <option value="">Semua Status</option>
+              <option value="Lunas">✅ Lunas</option>
+              <option value="Belum Lunas">❌ Belum Lunas</option>
+              <option value="Jatuh Tempo">⏰ Jatuh Tempo</option>
+            </select>
+          </div>
+          <div class="field" style="margin:0;min-width:130px;flex:1">
+            <label style="font-size:11.5px;font-weight:700;color:var(--text-muted);margin-bottom:4px;display:block">METODE BAYAR</label>
+            <select id="filter-inv-metode" onchange="applyInvoiceFilter()" style="width:100%;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px">
+              <option value="">Semua Metode</option>
+              <option value="Tunai">💵 Tunai</option>
+              <option value="Transfer">🏦 Transfer</option>
+              <option value="Tempo">📅 Tempo</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px;align-items:flex-end;padding-bottom:0">
+            <button class="btn btn-primary btn-sm" onclick="applyInvoiceFilter()" style="height:36px">
+              <i class="fas fa-filter"></i> Filter
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="resetInvoiceFilter()" style="height:36px">
+              <i class="fas fa-times"></i> Reset
+            </button>
+          </div>
+          <div id="filter-inv-info" style="font-size:12px;color:var(--text-muted);align-self:flex-end;padding-bottom:2px"></div>
+        </div>
+
         <!-- Ringkasan status transaksi -->
         <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
           <div class="kpi-mini" style="flex:1;min-width:140px"><h4>Total Transaksi</h4><div class="amount" id="trx-total-count" style="color:var(--primary-light)">0</div></div>
@@ -321,6 +395,7 @@
               <tbody id="tbody-invoice"></tbody>
             </table>
           </div>
+          <div id="pagination-invoice" class="pagination-container"></div>
         </div>
       </div>
 
@@ -331,7 +406,8 @@
             <div class="search-bar"><i class="fas fa-search"></i><input type="text" id="search-stok" placeholder="Cari stok..."></div>
           </div>
           <div style="display:flex;gap:10px">
-            <button class="btn btn-outline btn-sm" onclick="exportCSV('stok')"><i class="fas fa-download"></i> Export</button>
+            <button class="btn btn-outline btn-sm" onclick="exportCSV('stok')"><i class="fas fa-download"></i> CSV</button>
+            <button class="btn btn-outline btn-sm" style="color:var(--accent2);border-color:var(--accent2)" onclick="exportExcel('stok')"><i class="fas fa-file-excel"></i> Excel</button>
             <button class="btn btn-success" onclick="openModal('modal-stok-masuk')"><i class="fas fa-arrow-up"></i> Stok Masuk</button>
             <button class="btn btn-danger" onclick="openModal('modal-stok-keluar')"><i class="fas fa-arrow-down"></i> Stok Keluar</button>
           </div>
@@ -356,7 +432,8 @@
             <div class="search-bar"><i class="fas fa-search"></i><input type="text" id="search-mitra" placeholder="Cari mitra..."></div>
           </div>
           <div style="display:flex;gap:10px">
-            <button class="btn btn-outline btn-sm" onclick="exportCSV('mitra')"><i class="fas fa-download"></i> Export</button>
+            <button class="btn btn-outline btn-sm" onclick="exportCSV('mitra')"><i class="fas fa-download"></i> CSV</button>
+            <button class="btn btn-outline btn-sm" style="color:var(--accent2);border-color:var(--accent2)" onclick="exportExcel('mitra')"><i class="fas fa-file-excel"></i> Excel</button>
             <button class="btn btn-primary" onclick="openModal('modal-mitra')"><i class="fas fa-plus"></i> Tambah Mitra</button>
           </div>
         </div>
@@ -367,6 +444,7 @@
               <tbody id="tbody-mitra"></tbody>
             </table>
           </div>
+          <div id="pagination-mitra" class="pagination-container"></div>
         </div>
       </div>
 
@@ -393,7 +471,8 @@
             <div class="card-header">
               <h3><i class="fas fa-minus-circle" style="color:var(--danger)"></i> Pengeluaran</h3>
               <div style="display:flex;gap:8px">
-                <button class="btn btn-outline btn-sm" onclick="exportCSV('pengeluaran')"><i class="fas fa-download"></i></button>
+                <button class="btn btn-outline btn-sm" onclick="exportCSV('pengeluaran')" title="Export CSV"><i class="fas fa-download"></i> CSV</button>
+                <button class="btn btn-outline btn-sm" style="color:var(--accent2);border-color:var(--accent2)" onclick="exportExcel('pengeluaran')" title="Export Excel"><i class="fas fa-file-excel"></i></button>
                 <button class="btn btn-danger btn-sm" onclick="openModal('modal-pengeluaran')"><i class="fas fa-plus"></i> Tambah</button>
               </div>
             </div>
@@ -437,13 +516,21 @@
             <h3><i class="fas fa-chart-line" style="color:var(--primary-light)"></i> Trend Penjualan Bulanan</h3>
             <div style="display:flex;align-items:center;gap:10px">
               <span id="laporan-total-year" style="font-size:13px;color:var(--text-muted)"></span>
-              <select class="year-select" id="laporan-year-sel" onchange="buildLaporanChart()">
-                <option>2024</option><option selected>2025</option><option>2026</option>
-                <option>2027</option><option>2028</option><option>2029</option>
-                <option>2030</option><option>2031</option><option>2032</option>
-                <option>2033</option><option>2034</option><option>2035</option>
-              </select>
+              <select class="year-select" id="laporan-year-sel" onchange="buildLaporanChart()"></select>
             </div>
+          </div>
+          <!-- Filter Rentang Tanggal di Laporan -->
+          <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:0 4px 14px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <label style="font-size:12px;color:var(--text-muted);font-weight:700">RENTANG:</label>
+              <input type="date" id="filter-lap-dari" oninput="buildLaporanChart()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px">
+              <span style="color:var(--text-muted);font-size:12px">s/d</span>
+              <input type="date" id="filter-lap-sampai" oninput="buildLaporanChart()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px">
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="resetLaporanFilter()" style="font-size:11.5px;padding:5px 12px">
+              <i class="fas fa-times"></i> Reset Filter
+            </button>
+            <span id="filter-lap-info" style="font-size:12px;color:var(--accent2)"></span>
           </div>
           <div class="card-body">
             <div class="bar-chart" id="laporan-chart" style="height:200px"></div>
@@ -547,6 +634,10 @@
             <div class="form-row">
               <div class="field"><label>Rekening Bank</label><input type="text" id="set-company-rek" placeholder="BCA 123-456-7890 a/n ..."></div>
               <div class="field"><label>% Bonus Sales</label><input type="number" id="set-bonus-rate" value="2" min="0" max="100"></div>
+            </div>
+            <div class="form-row">
+              <div class="field"><label>% PPN (Pajak Pertambahan Nilai)</label><div style="display:flex;align-items:center;gap:8px"><input type="number" id="set-ppn-rate" value="11" min="0" max="100" step="0.5" style="flex:1"><span style="font-size:13px;color:var(--text-muted);white-space:nowrap">% — berlaku di semua invoice baru</span></div></div>
+              <div class="field"><label>Aktifkan PPN</label><div style="display:flex;align-items:center;gap:12px;margin-top:10px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px"><input type="checkbox" id="set-ppn-aktif" checked style="width:16px;height:16px;accent-color:var(--primary-light)"> Hitung PPN otomatis di invoice</label></div></div>
             </div>
             <button class="btn btn-primary" onclick="saveCompanyProfile()"><i class="fas fa-save"></i> Simpan Profil</button>
           </div>
@@ -683,6 +774,7 @@
               <tbody id="tbody-log"></tbody>
             </table>
           </div>
+          <div id="pagination-log" class="pagination-container"></div>
         </div>
       </div>
 
@@ -1007,7 +1099,8 @@
             <div class="search-bar"><i class="fas fa-search"></i><input type="text" id="search-surat-jalan" placeholder="Cari no SJ, mitra, sopir..."></div>
           </div>
           <div style="display:flex;gap:10px">
-            <button class="btn btn-outline btn-sm" onclick="exportCSV('surat_jalan')"><i class="fas fa-download"></i> Export</button>
+            <button class="btn btn-outline btn-sm" onclick="exportCSV('surat_jalan')"><i class="fas fa-download"></i> CSV</button>
+            <button class="btn btn-outline btn-sm" style="color:var(--accent2);border-color:var(--accent2)" onclick="exportExcel('surat_jalan')"><i class="fas fa-file-excel"></i> Excel</button>
           </div>
         </div>
         <div class="alert alert-info" style="margin-bottom:16px">
@@ -1060,8 +1153,7 @@
 
     <!-- Footer -->
     <div class="app-footer">
-      🕌 BMS — CV. Baitul Ma'mur Syafaah · Sistem Manajemen Bisnis &nbsp;|&nbsp;
-      Dibuat oleh hantu <a href="https://github.com/gostcyber" target="_blank">@gostcyber</a> 2026
+      🕌 BMS — CV. Baitul Ma'mur Syafaah &nbsp;|&nbsp; Sistem Manajemen Bisnis &nbsp;|&nbsp; <span id="footer-year"></span> &nbsp;<script>document.getElementById('footer-year').textContent='© '+new Date().getFullYear();</script>
     </div>
   </div><!-- /main -->
 </div><!-- /app -->
@@ -1207,13 +1299,14 @@
         </table>
         <button class="btn btn-outline btn-sm" onclick="addInvItem()"><i class="fas fa-plus"></i> Tambah Item</button>
       </div>
+      <div class="field"><label>Catatan / Memo <span style="color:var(--text-muted);font-weight:400">(opsional — akan muncul di invoice)</span></label><textarea id="inv-catatan" style="min-height:56px" placeholder="Contoh: Terima kasih atas kepercayaan Anda. Pembayaran via BCA 123-456-789..."></textarea></div>
       <div class="form-row">
         <div class="field"><label>Diskon (%)</label><input type="number" id="inv-diskon" value="0" min="0" max="100" oninput="hitungTotal()"></div>
         <div class="field">
           <label>Ringkasan</label>
           <div style="background:var(--bg);padding:12px;border-radius:10px;font-size:13px">
             <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Subtotal</span><span id="inv-subtotal">Rp 0</span></div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>PPN 11%</span><span id="inv-ppn">Rp 0</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span id="inv-ppn-label">PPN 11%</span><span id="inv-ppn">Rp 0</span></div>
             <div style="display:flex;justify-content:space-between;font-weight:800;font-size:15px;border-top:2px solid var(--border);padding-top:8px"><span>TOTAL</span><span id="inv-total" style="color:var(--primary-light)">Rp 0</span></div>
           </div>
         </div>
@@ -1223,6 +1316,54 @@
       <button class="btn btn-outline" onclick="closeModal('modal-invoice')">Batal</button>
       <button class="btn btn-accent" onclick="previewInvoice()"><i class="fas fa-eye"></i> Preview</button>
       <button class="btn btn-primary" onclick="simpanInvoice()"><i class="fas fa-save"></i> Simpan Transaksi</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ===== MODAL: EDIT TRANSAKSI ===== -->
+<div class="modal-overlay" id="modal-edit-invoice">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h3><i class="fas fa-edit" style="color:var(--accent)"></i> Edit Transaksi</h3>
+      <button class="modal-close" onclick="closeModal('modal-edit-invoice')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ei-id">
+      <div class="alert alert-info" style="margin-bottom:14px;font-size:12.5px">
+        <i class="fas fa-info-circle"></i>
+        Hanya data non-kritis yang bisa diubah. Stok & item tidak berubah. Perubahan dicatat di Log Aktivitas.
+      </div>
+      <div class="form-row">
+        <div class="field"><label>No Transaksi</label><input type="text" id="ei-no" readonly style="background:var(--bg)"></div>
+        <div class="field"><label>Status Pembayaran</label>
+          <select id="ei-status">
+            <option value="Lunas">✅ Lunas</option>
+            <option value="Belum Lunas">❌ Belum Lunas</option>
+            <option value="Jatuh Tempo">⏰ Jatuh Tempo</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Tanggal Jatuh Tempo</label><input type="date" id="ei-tempo"></div>
+        <div class="field"><label>Metode Pembayaran</label>
+          <select id="ei-bayar">
+            <option value="Tunai">💵 Tunai</option>
+            <option value="Transfer">🏦 Transfer Bank</option>
+            <option value="Tempo">📅 Tempo / Kredit</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Catatan / Memo</label>
+        <textarea id="ei-catatan" style="min-height:64px" placeholder="Tambah atau ubah catatan invoice..."></textarea>
+      </div>
+      <div class="field"><label>Alasan Perubahan *</label>
+        <input type="text" id="ei-alasan" placeholder="Contoh: Koreksi metode bayar, perubahan jatuh tempo...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-edit-invoice')">Batal</button>
+      <button class="btn btn-primary" onclick="simpanEditInvoice()"><i class="fas fa-save"></i> Simpan Perubahan</button>
     </div>
   </div>
 </div>
@@ -1246,7 +1387,7 @@
 
 <!-- ===== MODAL: TAMBAH MITRA ===== -->
 <div class="modal-overlay" id="modal-mitra">
-  <div class="modal modal-sm">
+  <div class="modal">
     <div class="modal-header">
       <h3><i class="fas fa-handshake" style="color:var(--accent2)"></i> Tambah Mitra</h3>
       <button class="modal-close" onclick="closeModal('modal-mitra')"><i class="fas fa-times"></i></button>
@@ -1260,8 +1401,14 @@
       <div class="field"><label>Nama PIC</label><input type="text" id="m-pic" placeholder="Nama kontak"></div>
       <div class="form-row">
         <div class="field"><label>No HP</label><input type="text" id="m-hp" placeholder="0812-xxxx"></div>
-        <div class="field"><label>Kota</label><input type="text" id="m-kota" placeholder="Jakarta"></div>
+        <div class="field"><label>Email</label><input type="email" id="m-email" placeholder="mitra@email.com"></div>
       </div>
+      <div class="form-row">
+        <div class="field"><label>Kota</label><input type="text" id="m-kota" placeholder="Jakarta"></div>
+        <div class="field"><label>Kode Pos</label><input type="text" id="m-kodepos" placeholder="16xxx"></div>
+      </div>
+      <div class="field"><label>Alamat Lengkap</label><textarea id="m-alamat" style="min-height:60px" placeholder="Jl. Contoh No. 1, Kelurahan, Kecamatan..."></textarea></div>
+      <div class="field"><label>NPWP Mitra <span style="color:var(--text-muted);font-weight:400">(opsional)</span></label><input type="text" id="m-npwp" placeholder="xx.xxx.xxx.x-xxx.xxx"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-mitra')">Batal</button>
@@ -1507,6 +1654,280 @@ window.addEventListener('appinstalled', () => {
   document.getElementById('pwa-install-banner').style.display = 'none';
   console.log('[BMS] PWA was installed');
 });
+</script>
+
+<!-- ================================================================
+     BMS UPDATE SCRIPTS v2.0
+     Fitur baru: exportExcel, editInvoice, sound notification,
+     dynamic year dropdown, PPN configurable
+================================================================ -->
+<script>
+// ── 1. EXPORT EXCEL (SheetJS) ─────────────────────────────────────
+function exportExcel(tipe) {
+  let data = [];
+  let filename = 'BMS_Export';
+  let sheetName = tipe;
+
+  try {
+    if (tipe === 'barang') {
+      filename = 'BMS_Data_Barang';
+      sheetName = 'Barang';
+      const rows = document.querySelectorAll('#tbody-barang tr');
+      data.push(['Kode','Nama Barang','Kategori','Satuan','H. Beli','H. Jual','Stok','Status']);
+      rows.forEach(r => {
+        const cells = r.querySelectorAll('td');
+        if (cells.length >= 9) {
+          data.push([
+            cells[1]?.innerText, cells[2]?.innerText, cells[3]?.innerText,
+            cells[4]?.innerText, cells[5]?.innerText, cells[6]?.innerText,
+            cells[7]?.innerText, cells[8]?.innerText
+          ]);
+        }
+      });
+    } else if (tipe === 'invoice') {
+      filename = 'BMS_Transaksi';
+      sheetName = 'Transaksi';
+      const rows = document.querySelectorAll('#tbody-invoice tr');
+      data.push(['No Transaksi','Tanggal','Mitra','Sales','Total','Metode Bayar','Status','Jatuh Tempo']);
+      rows.forEach(r => {
+        const cells = r.querySelectorAll('td');
+        if (cells.length >= 8) {
+          data.push([
+            cells[0]?.innerText, cells[1]?.innerText, cells[2]?.innerText,
+            cells[3]?.innerText, cells[4]?.innerText, cells[5]?.innerText,
+            cells[6]?.innerText, cells[7]?.innerText
+          ]);
+        }
+      });
+    } else if (tipe === 'stok') {
+      filename = 'BMS_Info_Stok';
+      sheetName = 'Stok';
+      const rows = document.querySelectorAll('#tbody-stok tr');
+      data.push(['Kode','Nama','Kategori','Masuk','Keluar','Stok','Min Stok','Status']);
+      rows.forEach(r => {
+        const cells = r.querySelectorAll('td');
+        if (cells.length >= 9) {
+          data.push([
+            cells[1]?.innerText, cells[2]?.innerText, cells[3]?.innerText,
+            cells[4]?.innerText, cells[5]?.innerText, cells[6]?.innerText,
+            cells[7]?.innerText, cells[9]?.innerText
+          ]);
+        }
+      });
+    } else if (tipe === 'mitra') {
+      filename = 'BMS_Mitra';
+      sheetName = 'Mitra';
+      const rows = document.querySelectorAll('#tbody-mitra tr');
+      data.push(['Kode','Nama','Tipe','PIC','HP','Kota','Piutang','Status']);
+      rows.forEach(r => {
+        const cells = r.querySelectorAll('td');
+        if (cells.length >= 8) {
+          data.push([
+            cells[0]?.innerText, cells[1]?.innerText, cells[2]?.innerText,
+            cells[3]?.innerText, cells[4]?.innerText, cells[5]?.innerText,
+            cells[6]?.innerText, cells[7]?.innerText
+          ]);
+        }
+      });
+    } else if (tipe === 'pengeluaran') {
+      filename = 'BMS_Pengeluaran';
+      sheetName = 'Pengeluaran';
+      const rows = document.querySelectorAll('#tbody-pengeluaran tr');
+      data.push(['Tanggal','Keterangan','Kategori','Jumlah']);
+      rows.forEach(r => {
+        const cells = r.querySelectorAll('td');
+        if (cells.length >= 4) {
+          data.push([cells[0]?.innerText, cells[1]?.innerText, cells[2]?.innerText, cells[3]?.innerText]);
+        }
+      });
+    } else if (tipe === 'surat_jalan') {
+      filename = 'BMS_Surat_Jalan';
+      sheetName = 'SuratJalan';
+      const rows = document.querySelectorAll('#tbody-surat-jalan tr');
+      data.push(['No SJ','Tanggal','Mitra','Sopir','Kendaraan','Status']);
+      rows.forEach(r => {
+        const cells = r.querySelectorAll('td');
+        if (cells.length >= 6) {
+          data.push([cells[0]?.innerText, cells[1]?.innerText, cells[2]?.innerText,
+            cells[3]?.innerText, cells[4]?.innerText, cells[5]?.innerText]);
+        }
+      });
+    }
+
+    if (data.length <= 1) {
+      if (window.showToast) showToast('Tidak ada data untuk di-export', 'warning');
+      else alert('Tidak ada data untuk di-export');
+      return;
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    // Auto-width kolom
+    const colWidths = data[0].map((_, i) =>
+      ({ wch: Math.max(...data.map(row => (row[i]||'').toString().length), 12) })
+    );
+    ws['!cols'] = colWidths;
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0,10).replace(/-/g,'');
+    XLSX.writeFile(wb, `${filename}_${dateStr}.xlsx`);
+
+    if (window.showToast) showToast(`✅ Excel berhasil diunduh (${data.length - 1} baris)`, 'success');
+  } catch(e) {
+    console.error('[BMS] Export Excel error:', e);
+    if (window.showToast) showToast('Gagal export Excel: ' + e.message, 'error');
+  }
+}
+
+// ── 2. EDIT INVOICE / TRANSAKSI ──────────────────────────────────
+function openEditInvoice(invId) {
+  // Cari data invoice dari DOM atau state global app
+  const inv = (window.appData?.invoices || []).find(i => i.id === invId);
+  if (!inv) {
+    if (window.showToast) showToast('Data transaksi tidak ditemukan', 'error');
+    return;
+  }
+  document.getElementById('ei-id').value   = invId;
+  document.getElementById('ei-no').value   = inv.no || '';
+  document.getElementById('ei-status').value = inv.status || 'Lunas';
+  document.getElementById('ei-bayar').value  = inv.metodeBayar || 'Tunai';
+  document.getElementById('ei-tempo').value  = inv.jatuhTempo || '';
+  document.getElementById('ei-catatan').value = inv.catatan || '';
+  document.getElementById('ei-alasan').value  = '';
+  openModal('modal-edit-invoice');
+}
+
+function simpanEditInvoice() {
+  const invId   = document.getElementById('ei-id').value;
+  const alasan  = document.getElementById('ei-alasan').value.trim();
+  if (!alasan) {
+    if (window.showToast) showToast('Isi alasan perubahan terlebih dahulu', 'warning');
+    return;
+  }
+  const perubahan = {
+    status:      document.getElementById('ei-status').value,
+    metodeBayar: document.getElementById('ei-bayar').value,
+    jatuhTempo:  document.getElementById('ei-tempo').value,
+    catatan:     document.getElementById('ei-catatan').value,
+    editedAt:    new Date().toISOString(),
+    editAlasan:  alasan,
+  };
+  // Panggil fungsi update Firebase di app.js jika tersedia
+  if (typeof window.updateInvoiceData === 'function') {
+    window.updateInvoiceData(invId, perubahan);
+  } else {
+    // Fallback: update state lokal
+    const inv = (window.appData?.invoices || []).find(i => i.id === invId);
+    if (inv) Object.assign(inv, perubahan);
+    console.warn('[BMS] updateInvoiceData() belum tersedia di app.js — update lokal saja');
+    if (window.showToast) showToast('Perubahan tersimpan (lokal). Sinkronkan dengan Firebase.', 'warning');
+  }
+  closeModal('modal-edit-invoice');
+  if (window.showToast) showToast('✅ Transaksi berhasil diperbarui', 'success');
+  if (typeof window.renderInvoice === 'function') window.renderInvoice();
+}
+
+// ── 3. NOTIFIKASI SUARA LIVE CHAT ─────────────────────────────────
+(function() {
+  let _audioCtx = null;
+  function getAudioCtx() {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return _audioCtx;
+  }
+
+  window.playChatSound = function(type = 'receive') {
+    try {
+      const ctx  = getAudioCtx();
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      if (type === 'send') {
+        // Nada pendek ke atas
+        osc.frequency.setValueAtTime(600, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(900, ctx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.15);
+      } else {
+        // Dua nada — ding dong
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        gain.gain.setValueAtTime(0.18, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.35);
+
+        const osc2  = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.frequency.setValueAtTime(660, ctx.currentTime + 0.2);
+        gain2.gain.setValueAtTime(0.15, ctx.currentTime + 0.2);
+        gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+        osc2.start(ctx.currentTime + 0.2);
+        osc2.stop(ctx.currentTime + 0.5);
+      }
+    } catch(e) {
+      // AudioContext tidak tersedia — skip
+    }
+  };
+
+  // Patch sendMessage agar berbunyi (jika app.js tidak memanggil playChatSound)
+  const _origSend = window.sendMessage;
+  window.sendMessage = function() {
+    window.playChatSound('send');
+    if (typeof _origSend === 'function') return _origSend.apply(this, arguments);
+  };
+})();
+
+// ── 4. DYNAMIC YEAR DROPDOWN LAPORAN ─────────────────────────────
+function initLaporanYearDropdown() {
+  const sel = document.getElementById('laporan-year-sel');
+  if (!sel) return;
+  const thisYear  = new Date().getFullYear();
+  const startYear = 2024;
+  const endYear   = thisYear + 5;
+  sel.innerHTML   = '';
+  for (let y = startYear; y <= endYear; y++) {
+    const opt      = document.createElement('option');
+    opt.value      = y;
+    opt.textContent = y;
+    if (y === thisYear) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+// Jalankan saat DOM ready
+document.addEventListener('DOMContentLoaded', initLaporanYearDropdown);
+window.addEventListener('load', initLaporanYearDropdown);
+
+// ── 5. PPN CONFIGURABLE — helper untuk app.js ─────────────────────
+window.getBMSPPNRate = function() {
+  const el   = document.getElementById('set-ppn-rate');
+  const aktif = document.getElementById('set-ppn-aktif');
+  if (aktif && !aktif.checked) return 0;
+  const rate = parseFloat(el?.value ?? '11');
+  return isNaN(rate) ? 11 : rate;
+};
+
+// Update label PPN di invoice modal secara dinamis
+window.updatePPNLabel = function() {
+  const rate = window.getBMSPPNRate();
+  const lbl  = document.getElementById('inv-ppn-label');
+  if (lbl) lbl.textContent = rate === 0 ? 'PPN (nonaktif)' : `PPN ${rate}%`;
+};
+
+// Panggil setiap kali modal invoice dibuka
+const _origOpenModal = window.openModal;
+window.openModal = function(id) {
+  if (typeof _origOpenModal === 'function') _origOpenModal(id);
+  if (id === 'modal-invoice') {
+    setTimeout(window.updatePPNLabel, 50);
+  }
+};
 </script>
 </body>
 </html>

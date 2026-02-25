@@ -865,6 +865,7 @@ function renderInvoice() {
   const tbody = document.getElementById('tbody-invoice');
   if (!tbody) return;
   const canEdit = currentUser && (currentUser.role==='owner'||currentUser.role==='admin');
+  const isSales = currentUser?.role === 'sales';
   // Terapkan filter & pagination
   const filtered = getFilteredInvoices();
   const total    = filtered.length;
@@ -891,7 +892,7 @@ function renderInvoice() {
         <div style="display:flex;gap:6px">
           <button class="btn btn-outline btn-icon btn-sm" onclick="showInvoicePreview(${i})" title="Preview"><i class="fas fa-eye"></i></button>
           ${canEdit?`<button class="btn btn-primary btn-icon btn-sm" onclick="editInvoice(${i})" title="Edit Status/Catatan"><i class="fas fa-edit"></i></button>`:''}
-          ${canEdit&&inv.status!=='Lunas'?`<button class="btn btn-success btn-icon btn-sm" onclick="tandaiLunas(${i})" title="Tandai Lunas"><i class="fas fa-check"></i></button>`:''}
+          ${(canEdit || (isSales && inv.salesUid === currentUser?.uid)) && inv.status!=='Lunas'?`<button class="btn btn-success btn-icon btn-sm" onclick="tandaiLunas(${i})" title="Tandai Lunas"><i class="fas fa-check"></i></button>`:''}
           <button class="btn btn-accent btn-icon btn-sm" onclick="generateSuratJalan('${inv._id}')" title="Generate Surat Jalan"><i class="fas fa-truck"></i></button>
           ${canEdit?`<button class="btn btn-danger btn-icon btn-sm" onclick="hapusTransaksi(${i})" title="Hapus"><i class="fas fa-trash"></i></button>`:''}
         </div>
@@ -2263,16 +2264,26 @@ async function tandaiLunas(i) {
   if (!inv) return;
   const prevStatus = inv.status;
   const updates = { status: 'Lunas', tglLunas: new Date().toISOString().slice(0,10) };
+
   if (inv._id) {
     try {
       await window.FS.updateDoc(window.FS.docRef('invoice', inv._id), updates);
       Object.assign(inv, updates);
     } catch(e) {
+      // Cek apakah error karena Firebase permissions
+      if (e.code === 'permission-denied') {
+        showToast('❌ Tidak ada izin. Cek Firestore Rules di Firebase Console!', 'error');
+        console.error('Firestore permission denied:', e);
+        return;
+      }
+      // Error lain (offline) — update lokal saja
       Object.assign(inv, updates);
+      showToast('⚠️ Offline — status diupdate lokal saja', 'warning');
     }
   } else {
     Object.assign(inv, updates);
   }
+
   // Update piutang mitra jika sebelumnya Belum Lunas
   if (prevStatus !== 'Lunas' && inv.mitra) {
     const m = DB.mitra.find(m => m.nama === inv.mitra);
@@ -2280,7 +2291,8 @@ async function tandaiLunas(i) {
       const bayar = inv.total || 0;
       m.piutang = Math.max(0, (m.piutang || 0) - bayar);
       if (m._id) {
-        window.FS.updateDoc(window.FS.docRef('mitra', m._id), { piutang: m.piutang }).catch(() => {});
+        window.FS.updateDoc(window.FS.docRef('mitra', m._id), { piutang: m.piutang })
+          .catch(err => console.warn('Gagal update piutang mitra:', err));
       }
     }
   }

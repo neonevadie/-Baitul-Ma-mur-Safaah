@@ -424,6 +424,10 @@ window.FA.onAuth(async (fbUser) => {
       await window.FS.setDoc(window.FS.docRef('users', fbUser.uid), profile);
     }
 
+    // Pastikan 'tutorial' selalu ada di menus semua user (fix untuk akun lama)
+    if (profile.menus && !profile.menus.includes('tutorial')) {
+      profile.menus.push('tutorial');
+    }
     currentUser = { ...profile, uid: fbUser.uid, email: fbUser.email };
     applySession(currentUser);
   } catch(e) {
@@ -627,7 +631,7 @@ function navigateTo(id) {
     document.getElementById('page-title').textContent = cfg.label;
     document.getElementById('page-sub').textContent = cfg.sub;
   }
-  if (id === 'laporan')    buildLaporanChart();
+  if (id === 'laporan')    { buildLaporanChart(); renderLaporanPiutang(); }
   if (id === 'sales_dash') buildSalesDashboard();
   if (id === 'settings')   renderSettings();
   if (id === 'opname')     renderOpname();
@@ -724,29 +728,32 @@ async function loadAllFromFirestore() {
 function setupRealtimeListeners() {
   const { FS } = window;
   FS.onSnapshot(FS.query(FS.col('barang'),     FS.orderBy('_ts','desc')), s => {
-    if(!s.empty) { DB.barang=s.docs.map(d=>({_id:d.id,...d.data()})); renderBarang(); renderStok(); renderStokKritis(); fillDropdowns(); buildMainChart(); updateRunningText(); renderDashboardStats(); }
+    DB.barang=s.docs.map(d=>({_id:d.id,...d.data()})); renderBarang(); renderStok(); renderStokKritis(); fillDropdowns(); buildMainChart(); updateRunningText(); renderDashboardStats();
   });
   FS.onSnapshot(FS.query(FS.col('invoice'),    FS.orderBy('_ts','desc')), s => {
-    if(!s.empty) { DB.invoice=s.docs.map(d=>({_id:d.id,...d.data()})); renderInvoice(); renderInvoiceStats(); renderDashboardStats(); buildMainChart(); if(isPageActive('laporan')) buildLaporanChart(); }
+    DB.invoice=s.docs.map(d=>({_id:d.id,...d.data()})); renderInvoice(); renderInvoiceStats(); renderDashboardStats(); buildMainChart();
+    if(isPageActive('laporan')) { buildLaporanChart(); renderLaporanPiutang(); }
   });
   FS.onSnapshot(FS.query(FS.col('mitra'),      FS.orderBy('_ts','desc')), s => {
-    if(!s.empty) { DB.mitra=s.docs.map(d=>({_id:d.id,...d.data()})); renderMitra(); fillDropdowns(); }
+    DB.mitra=s.docs.map(d=>({_id:d.id,...d.data()})); renderMitra(); fillDropdowns();
   });
   // Pengeluaran, pembelian, log: hanya untuk owner/admin
   const isOwnerAdmin = currentUser?.role === 'owner' || currentUser?.role === 'admin';
   if (isOwnerAdmin) {
     FS.onSnapshot(FS.query(FS.col('pengeluaran'),FS.orderBy('_ts','desc')), s => {
-      if(!s.empty) { DB.pengeluaran=s.docs.map(d=>({_id:d.id,...d.data()})); renderPengeluaran(); }
+      DB.pengeluaran=s.docs.map(d=>({_id:d.id,...d.data()})); renderPengeluaran();
+      if(isPageActive('keuangan')) renderAssets();
     });
     FS.onSnapshot(FS.query(FS.col('pembelian'),  FS.orderBy('_ts','desc')), s => {
-      if(!s.empty) { DB.pembelian=s.docs.map(d=>({_id:d.id,...d.data()})); renderPembelian(); }
+      DB.pembelian=s.docs.map(d=>({_id:d.id,...d.data()})); renderPembelian();
+      if(isPageActive('keuangan')) renderAssets();
     });
     FS.onSnapshot(FS.query(FS.col('log'),        FS.orderBy('_ts','desc'), FS.limit(100)), s => {
       DB.log=s.docs.map(d=>({_id:d.id,...d.data()})); renderLog();
     });
   }
   FS.onSnapshot(FS.query(FS.col('chat'),       FS.orderBy('_ts','asc'),  FS.limit(50)),  s => {
-    if(!s.empty) {
+    {
       const newMessages = s.docs.map(d=>({_id:d.id,...d.data()}));
       // Putar notif suara jika ada pesan baru dari orang lain & chat sedang tutup
       if (!chatOpen && newMessages.length > _lastChatCount) {
@@ -1572,12 +1579,8 @@ async function tambahUserSales() {
   try {
     showToast('⏳ Membuat akun...', 'info');
     const uid = await window.FA.createUser(email, pass);
-    // Save profile ke Firestore users/{uid}
-    const profile = {
-      role:'sales', name, label:'Tim Sales', avatar:name[0].toUpperCase(),
-      menus:['dashboard','stok','invoice','mitra','sales_dash'], email, uid
-    };
-    await window.FS.setDoc(window.FS.docRef('users', uid), profile);
+    // Profil akan dibuat otomatis saat user pertama login (buildProfileFromEmail)
+    // Owner tidak bisa tulis ke /users/{uid} karena Firestore rules memerlukan request.auth.uid == uid
     // Add to appConfig salesUsers
     if (!appConfig) appConfig = {};
     if (!appConfig.salesUsers) appConfig.salesUsers = [];
@@ -2804,6 +2807,28 @@ async function sendMessage() {
   if (input) input.value = '';
   try { await window.FS.addDoc(window.FS.col('chat'), data); }
   catch(e) { chatMessages.push({...data,id:Date.now()}); renderChatMessages(); }
+}
+
+async function clearChat() {
+  if (currentUser?.role !== 'owner' && currentUser?.role !== 'admin') {
+    showToast('❌ Hanya Owner/Admin yang bisa hapus semua chat!', 'error'); return;
+  }
+  if (!confirm('Kosongkan semua pesan live chat? Tindakan ini permanen!')) return;
+  try {
+    const snap = await window.FS.getDocs(window.FS.col('chat'));
+    const batch = window.FS.batch();
+    snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    DB.chat = [];
+    renderChatMessages();
+    showToast('🗑️ Live chat berhasil dikosongkan!');
+    addLog('chat', 'Live chat dikosongkan oleh ' + currentUser.name);
+  } catch(e) {
+    // Fallback offline
+    DB.chat = [];
+    renderChatMessages();
+    showToast('🗑️ Chat dikosongkan (offline)');
+  }
 }
 
 function sendBroadcast() {

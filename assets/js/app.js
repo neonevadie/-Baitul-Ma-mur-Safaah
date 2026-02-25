@@ -1,9 +1,42 @@
 // ================================================================
-//  BMS app.js v3.0 — CV. Baitul Ma'mur Syafaah
+//  BMS app.js v10.0 — CV. Baitul Ma'mur Syafaah
 //  Firebase Auth + Firestore | Dark/Light | Sales Dashboard
 //  Multiple Sales | Settings | Stock Opname | Running Text
-//  Dibuat oleh hantu @gostcyber 2026
+//  Dibuat oleh @gostcyber 2026
 // ================================================================
+//
+//  #23 MODULE MAP — Siap refactor ke ES Modules
+//  ┌─────────────────┬────────────────────────────────────────────┐
+//  │ Section         │ Fungsi Utama                               │
+//  ├─────────────────┼────────────────────────────────────────────┤
+//  │ STATE           │ DB, currentUser, pagination, appConfig     │
+//  │ MENU CONFIG     │ MENU_CONFIG, MENU_GROUPS                   │
+//  │ THEME           │ initTheme, applyTheme, toggleTheme         │
+//  │ AUTH            │ doLogin, doLogout, applySession            │
+//  │ NAV             │ buildNav, navigateTo, toggleNavGroup       │
+//  │ FIRESTORE LOAD  │ loadAllFromFirestore, setupRealtimeList.   │
+//  │ RENDER TABLES   │ renderBarang, renderInvoice, renderMitra   │
+//  │ STOK            │ renderStok, simpanStokMasuk/Keluar         │
+//  │ OPNAME          │ renderOpname, simpanOpnameRow              │
+//  │ CHARTS          │ buildMainChart, buildLaporanChart          │
+//  │ SALES DASHBOARD │ buildSalesDashboard                        │
+//  │ BARANG CRUD     │ simpanBarang, editBarang, hapusBarang      │
+//  │ INVOICE CRUD    │ simpanInvoice, hapusTransaksi, printInv.   │
+//  │ MITRA CRUD      │ simpanMitra, hapusMitra                    │
+//  │ KEUANGAN        │ simpanPengeluaran, simpanPembelian         │
+//  │ NOTIFICATIONS   │ renderNotifications, checkStokKritis       │
+//  │ SETTINGS        │ renderSettings, saveCompanyProfile         │
+//  │ CHAT            │ toggleChat, sendMessage                    │
+//  │ EXPORT          │ exportCSV, exportExcel, backupData         │
+//  │ SURAT JALAN     │ generateSuratJalan, printSuratJalan        │
+//  │ TREN STOK       │ renderTrenStok, buildTrenBars              │
+//  │ MULTI-GUDANG    │ renderGudangList, simpanGudang             │
+//  │ RENDER ALL      │ renderAll (selective), renderAllFull       │
+//  │ UTILS           │ showToast, openModal, closeModal           │
+//  └─────────────────┴────────────────────────────────────────────┘
+//
+// ================================================================
+
 
 // ───────────────────── MENU CONFIG ─────────────────────────────
 const MENU_CONFIG = [
@@ -549,7 +582,7 @@ function initData() {
     const t = setInterval(() => {
       w += 200;
       if (window.FIREBASE_READY) { clearInterval(t); loadAllFromFirestore(); }
-      else if (w >= 4000) { clearInterval(t); renderAll(); showToast('⚠️ Mode offline', 'warning'); }
+      else if (w >= 4000) { clearInterval(t); renderAllFull(); showToast('⚠️ Mode offline', 'warning'); }
     }, 200);
   }
   setDefaultDates();
@@ -585,14 +618,14 @@ async function loadAllFromFirestore() {
     if (!sSJ.empty) DB.surat_jalan = sSJ.docs.map(d => ({ _id:d.id,...d.data() }));
 
     setupRealtimeListeners();
-    renderAll();
+    renderAllFull();
     renderLog();
     updateFBStatus('online');
     showToast('☁️ Data berhasil dimuat dari Firebase!', 'success');
   } catch(err) {
     console.error('Firestore error:', err);
     updateFBStatus('offline');
-    renderAll();
+    renderAllFull();
     showToast('⚠️ Firebase error — ' + err.message, 'warning');
   }
 }
@@ -1855,6 +1888,7 @@ function previewFoto(event) {
   const preview = document.getElementById('foto-preview');
   preview.innerHTML = '';
   const MAX_SIZE_MB = 1;
+  // #22 — Kompres gambar sebelum preview agar Base64 tidak terlalu besar
   Array.from(event.target.files).slice(0,4).forEach(file => {
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
       showToast(`⚠️ "${file.name}" terlalu besar (maks ${MAX_SIZE_MB}MB). Gunakan foto yang lebih kecil.`, 'warning');
@@ -1862,10 +1896,28 @@ function previewFoto(event) {
     }
     const reader = new FileReader();
     reader.onload = e => {
-      const img = document.createElement('img');
-      img.src = e.target.result;
-      img.style.cssText = 'width:80px;height:80px;object-fit:cover;border-radius:10px;border:2px solid var(--border)';
-      preview.appendChild(img);
+      // Kompres via canvas — resize ke max 400x400px
+      const imgEl = new Image();
+      imgEl.onload = () => {
+        const MAX_DIM = 400;
+        let w = imgEl.width, h = imgEl.height;
+        if (w > MAX_DIM || h > MAX_DIM) {
+          if (w > h) { h = Math.round(h * MAX_DIM / w); w = MAX_DIM; }
+          else       { w = Math.round(w * MAX_DIM / h); h = MAX_DIM; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(imgEl, 0, 0, w, h);
+        const compressed = canvas.toDataURL('image/jpeg', 0.75); // kualitas 75%
+        const img = document.createElement('img');
+        img.src = compressed;
+        img.style.cssText = 'width:80px;height:80px;object-fit:cover;border-radius:10px;border:2px solid var(--border)';
+        preview.appendChild(img);
+        // Estimasi ukuran
+        const kb = Math.round(compressed.length * 0.75 / 1024);
+        if (kb > 200) showToast(`⚠️ Foto masih ${kb}KB setelah kompresi. Pertimbangkan gambar lebih kecil.`, 'warning');
+      };
+      imgEl.src = e.target.result;
     };
     reader.readAsDataURL(file);
   });
@@ -2776,26 +2828,59 @@ function renderDistribusiStok(containerId) {
   }).join('');
 }
 
-// Override renderAll to also update dashboard stats
-const _origRenderAll = renderAll;
-// We hook into the existing renderAll
-const _baseRenderAll = renderAll;
+// ═══════════════════════════════════════════════════════════════
+//  #21 OPTIMASI renderAll() — Selective render, bukan full re-render
+//  Setiap modul hanya di-render jika halaman tersebut sedang aktif
+//  atau data yang berkaitan berubah.
+// ═══════════════════════════════════════════════════════════════
+
+// Helper: cek apakah halaman tertentu sedang aktif
+function isPageActive(id) {
+  const el = document.getElementById('page-' + id);
+  return el && el.classList.contains('active');
+}
+
+// Render hanya modul yang relevan berdasarkan halaman aktif
 function renderAll() {
+  // Selalu update: dropdown, running text, badge, notif, data global
+  fillDropdowns();
+  updateRunningText();
+  updateKategoriDropdowns();
+  renderStokKritis();
+  if (currentUser) applyRoleRestrictions(currentUser.role);
+  window.appData = DB;
+
+  // Selective render per halaman aktif
+  if (isPageActive('dashboard'))   { buildMainChart(); renderDashboardStats(); }
+  if (isPageActive('barang'))      { renderBarang(); }
+  if (isPageActive('invoice'))     { renderInvoice(); renderInvoiceStats(); }
+  if (isPageActive('stok'))        { renderStok(); }
+  if (isPageActive('mitra'))       { renderMitra(); }
+  if (isPageActive('keuangan'))    { renderAssets(); renderPengeluaran(); renderPembelian(); }
+  if (isPageActive('laporan'))     { buildLaporanChart(); renderDashboardStats(); }
+  if (isPageActive('sales_dash'))  { buildSalesDashboard(); }
+  if (isPageActive('opname'))      { renderOpname(); }
+  if (isPageActive('gudang'))      { renderGudangList(); }
+  if (isPageActive('tren_stok'))   { renderTrenStok(); }
+  if (isPageActive('surat_jalan')) { renderSuratJalanList(); }
+  if (isPageActive('log'))         { renderLog(); }
+
+  // Notif: selalu cek (async, tidak blocking)
+  checkStokKritisNotif().then(() => renderNotifications()).catch(() => renderNotifications());
+  checkAndPushBrowserNotif();
+}
+
+// renderAll penuh — dipanggil sekali saat pertama load data dari Firestore
+function renderAllFull() {
   renderBarang(); renderInvoice(); renderStok();
   renderMitra(); renderPengeluaran(); renderPembelian();
   renderStokKritis(); buildMainChart(); fillDropdowns();
-  updateRunningText();
-  renderDashboardStats();
-  renderInvoiceStats();
-  updateKategoriDropdowns();
-  renderSuratJalanList();
-  renderGudangList();
-  renderTrenStok();
+  updateRunningText(); renderDashboardStats(); renderInvoiceStats();
+  updateKategoriDropdowns(); renderSuratJalanList(); renderGudangList();
+  renderTrenStok(); renderLog();
   if (currentUser) applyRoleRestrictions(currentUser.role);
-  // Cek & push notif stok kritis ke Firestore (async, tidak blocking)
   checkStokKritisNotif().then(() => renderNotifications()).catch(() => renderNotifications());
   checkAndPushBrowserNotif();
-  // Expose data untuk kompatibilitas dengan helper di index.html
   window.appData = DB;
 }
 
@@ -2939,10 +3024,14 @@ async function updateSJField(id, field, value) {
 function printSuratJalan(id) {
   openPreviewSuratJalan(id);
   setTimeout(() => {
+    // FIX #20: Sembunyikan #print-invoice-wrapper agar invoice tidak ikut tercetak
+    const invWrapper = document.getElementById('print-invoice-wrapper');
+    if (invWrapper) invWrapper.style.display = 'none';
+
     document.body.classList.add('print-sj-mode');
     window.print();
     document.body.classList.remove('print-sj-mode');
-  }, 300);
+  }, 400);
 }
 
 function kirimWASuratJalan(id) {

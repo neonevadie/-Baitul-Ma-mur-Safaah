@@ -3022,73 +3022,70 @@ async function updateSJField(id, field, value) {
 }
 
 function printSuratJalan(id) {
+  // Langkah 1: Buka preview dulu (biar user lihat dulu kalau perlu)
   openPreviewSuratJalan(id);
 
-  // Tunggu konten render (naikkan kalau data Firestore lambat, coba 1500-2500ms)
-  setTimeout(() => {
-    const sjArea = document.querySelector('.sj-print-area');
+  // Langkah 2: Tunggu konten surat jalan benar-benar muncul di layar
+  const waitForContent = setInterval(() => {
+    const sjContainer = document.querySelector('.sj-print-area');
 
-    // Cek apakah konten ada & tidak kosong
-    if (!sjArea || sjArea.innerHTML.trim() === '' || sjArea.querySelector('table') === null) {
-      console.error('Surat jalan belum siap: .sj-print-area kosong atau belum ada table.');
-      alert('Konten surat jalan belum ter-load sepenuhnya. Tunggu preview muncul lalu coba print lagi.');
-      return;
-    }
+    if (sjContainer && sjContainer.innerHTML.trim() !== '' && !sjContainer.innerHTML.includes('INVOICE')) {
+      clearInterval(waitForContent);
 
-    // Hide invoice wrapper kalau ada (biar aman)
-    const invWrapper = document.getElementById('print-invoice-wrapper');
-    if (invWrapper) invWrapper.style.display = 'none';
+      // Hide invoice wrapper kalau ada (biar nggak ikut copy)
+      const invWrapper = document.getElementById('print-invoice-wrapper');
+      if (invWrapper) invWrapper.style.display = 'none';
 
-    // Buka window baru untuk print
-    const printWindow = window.open('', '_blank', 'width=900,height=700,scrollbars=yes');
-    if (!printWindow) {
-      alert('Izinkan popup di browser untuk mencetak surat jalan.');
-      return;
-    }
+      // Buka window khusus print surat jalan
+      const printWin = window.open('', '_blank');
+      if (!printWin) {
+        alert('Izinkan popup untuk print surat jalan ya!');
+        return;
+      }
 
-    // Tulis HTML ke window baru
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html lang="id">
-      <head>
-        <meta charset="UTF-8">
-        <title>Surat Jalan - CV. Baitul Ma'mur Syafaah</title>
-        <link rel="stylesheet" href="assets/css/style.css">  <!-- sesuaikan path kalau beda -->
-        <style>
-          body {
-            margin: 0;
-            padding: 20px;
-            background: white;
-            color: black;
-            font-family: Arial, sans-serif;
-          }
-          @media print {
-            body, html {
-              background: white !important;
-              color: black !important;
-              margin: 0 !important;
-              padding: 10mm !important;
+      printWin.document.write(`
+        <!DOCTYPE html>
+        <html lang="id">
+        <head>
+          <meta charset="UTF-8">
+          <title>Surat Jalan - CV. Baitul Ma'mur Syafaah</title>
+          <link rel="stylesheet" href="assets/css/style.css">
+          <style>
+            body {
+              margin: 0;
+              padding: 15mm;
+              background: white;
+              color: black;
+              font-family: Arial, sans-serif;
             }
-            * {
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
+            @media print {
+              body { 
+                background: white !important; 
+                color: black !important; 
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             }
-          }
-        </style>
-      </head>
-      <body onload="window.print(); setTimeout(() => window.close(), 4000);">
-        ${sjArea.outerHTML}
-      </body>
-      </html>
-    `);
+          </style>
+        </head>
+        <body onload="window.print(); setTimeout(() => window.close(), 5000);">
+          ${sjContainer.outerHTML}
+        </body>
+        </html>
+      `);
 
-    printWindow.document.close();
+      printWin.document.close();
 
-    // Restore invoice wrapper
-    if (invWrapper) invWrapper.style.display = '';
+      // Restore invoice wrapper kalau perlu
+      if (invWrapper) invWrapper.style.display = '';
 
-    console.log('Print window dibuka untuk surat jalan');
-  }, 1500);  // Mulai dari 1500ms, naikkan kalau masih kosong
+      console.log('Surat jalan berhasil di-copy ke window print');
+    }
+  }, 500);  // Cek setiap 0.5 detik
+
+  // Stop cek setelah 10 detik kalau-kalau gagal load
+  setTimeout(() => clearInterval(waitForContent), 10000);
 }
 
 function kirimWASuratJalan(id) {

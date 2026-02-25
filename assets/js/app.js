@@ -136,6 +136,35 @@ async function loadAppConfig() {
     renderSalesDropdown();
   } catch(e) {
     console.warn('appConfig load failed:', e);
+    // Fallback default agar login tetap bisa berjalan walau Firestore error
+    if (!appConfig) {
+      appConfig = {
+        roleEmails: {
+          owner: 'owner@bms-syafaah.id',
+          admin : 'admin@bms-syafaah.id',
+        },
+        salesUsers: [
+          { id:'s1', name:'Sales Budi',  email:'sales1@bms-syafaah.id', avatar:'B' },
+          { id:'s2', name:'Sales Andi',  email:'sales2@bms-syafaah.id', avatar:'A' },
+          { id:'s3', name:'Sales Citra', email:'sales3@bms-syafaah.id', avatar:'C' },
+        ],
+        company: {
+          nama: "CV. Baitul Ma'mur Syafaah",
+          alamat: 'Ruko Villa Bogor Indah 5, Bogor, Jawa Barat',
+          telp: '(0251) 8xxx-xxxx',
+          email: 'info@bms-syafaah.id',
+          npwp: 'xx.xxx.xxx.x-xxx.xxx',
+          rekening: 'BCA 123-456-7890 a/n Baitul Mamur Syafaah',
+        },
+        bonusRate: 2,
+      };
+    }
+    renderSalesDropdown();
+    if (e.code === 'permission-denied') {
+      updateFBStatus('rules');
+    } else {
+      updateFBStatus('offline');
+    }
   }
 }
 
@@ -245,13 +274,14 @@ function buildProfileFromEmail(email, uid) {
 
   if (email === roleEmails.owner || email.startsWith('owner@')) {
     role='owner'; name='Owner BMS'; avatar='O'; label='Pemilik / Administrator';
-    menus=['dashboard','barang','invoice','stok','mitra','keuangan','laporan','sales_dash','opname','settings','log','tutorial'];
+    menus=['dashboard','barang','invoice','stok','mitra','keuangan','laporan','sales_dash','opname','gudang','tren_stok','surat_jalan','settings','log','tutorial'];
   } else if (email === roleEmails.admin || email.startsWith('admin@')) {
     role='admin'; name='Admin Keuangan'; avatar='R'; label='Admin Keuangan';
-    menus=['dashboard','barang','invoice','stok','mitra','keuangan','laporan','opname','settings'];
+    menus=['dashboard','barang','invoice','stok','mitra','keuangan','laporan','opname','gudang','tren_stok','surat_jalan','settings'];
   } else {
     const su = (cfg.salesUsers || []).find(s => s.email === email);
     if (su) { name=su.name; avatar=su.avatar||name[0]; }
+    menus=['dashboard','stok','invoice','mitra','sales_dash','surat_jalan'];
   }
   return { role, name, avatar, label, menus, uid };
 }
@@ -573,8 +603,9 @@ function updateFBStatus(state) {
   if (!el || !txt) return;
   const states = {
     online  : { cls:'online',  text:'☁️ Firebase terhubung — data real-time' },
-    offline : { cls:'offline', text:'⚠️ Offline — data lokal aktif' },
+    offline : { cls:'offline', text:'⚠️ Tidak terhubung — cek koneksi internet atau Firestore Rules' },
     loading : { cls:'offline', text:'🔄 Menghubungkan ke Firebase...' },
+    rules   : { cls:'offline', text:'🔒 Akses ditolak — periksa Firestore Security Rules' },
   };
   const s = states[state] || states.offline;
   el.className = `firebase-status ${s.cls}`;

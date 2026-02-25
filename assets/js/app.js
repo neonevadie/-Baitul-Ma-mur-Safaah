@@ -3021,37 +3021,39 @@ async function updateSJField(id, field, value) {
   } catch(e) { console.warn('Update SJ failed:', e); }
 }
 
-ffunction printSuratJalan(id) {
+function printSuratJalan(id) {
   openPreviewSuratJalan(id);
 
-  // Tunggu lebih lama agar konten dynamic (Firestore/table) render selesai
+  // Tunggu konten render (naikkan kalau data Firestore lambat, coba 1500-2500ms)
   setTimeout(() => {
     const sjArea = document.querySelector('.sj-print-area');
-    
-    if (!sjArea || sjArea.innerHTML.trim() === '') {
-      console.error('Konten surat jalan kosong atau belum render!');
-      alert('Surat jalan belum siap dicetak. Tunggu sebentar lalu coba lagi.');
+
+    // Cek apakah konten ada & tidak kosong
+    if (!sjArea || sjArea.innerHTML.trim() === '' || sjArea.querySelector('table') === null) {
+      console.error('Surat jalan belum siap: .sj-print-area kosong atau belum ada table.');
+      alert('Konten surat jalan belum ter-load sepenuhnya. Tunggu preview muncul lalu coba print lagi.');
       return;
     }
 
-    // Hide invoice wrapper (seperti kode lama, kalau ada)
+    // Hide invoice wrapper kalau ada (biar aman)
     const invWrapper = document.getElementById('print-invoice-wrapper');
     if (invWrapper) invWrapper.style.display = 'none';
 
-    // Buka window baru khusus untuk print surat jalan
-    const printWindow = window.open('', '_blank');
+    // Buka window baru untuk print
+    const printWindow = window.open('', '_blank', 'width=900,height=700,scrollbars=yes');
     if (!printWindow) {
       alert('Izinkan popup di browser untuk mencetak surat jalan.');
       return;
     }
 
+    // Tulis HTML ke window baru
     printWindow.document.write(`
       <!DOCTYPE html>
       <html lang="id">
       <head>
         <meta charset="UTF-8">
         <title>Surat Jalan - CV. Baitul Ma'mur Syafaah</title>
-        <link rel="stylesheet" href="assets/css/style.css">  <!-- pastikan path CSS sesuai struktur repo kamu -->
+        <link rel="stylesheet" href="assets/css/style.css">  <!-- sesuaikan path kalau beda -->
         <style>
           body {
             margin: 0;
@@ -3064,8 +3066,8 @@ ffunction printSuratJalan(id) {
             body, html {
               background: white !important;
               color: black !important;
-              margin: 0;
-              padding: 10mm;
+              margin: 0 !important;
+              padding: 10mm !important;
             }
             * {
               -webkit-print-color-adjust: exact !important;
@@ -3074,17 +3076,19 @@ ffunction printSuratJalan(id) {
           }
         </style>
       </head>
-      <body onload="window.print(); setTimeout(() => window.close(), 3000);">
-        ${sjArea.outerHTML}  <!-- copy full konten surat jalan -->
+      <body onload="window.print(); setTimeout(() => window.close(), 4000);">
+        ${sjArea.outerHTML}
       </body>
       </html>
     `);
 
     printWindow.document.close();
 
-    // Restore invoice wrapper kalau perlu (setelah print window dibuka)
+    // Restore invoice wrapper
     if (invWrapper) invWrapper.style.display = '';
-  }, 1200);  // Naikkan ke 1200-2000ms kalau data Firestore lambat
+
+    console.log('Print window dibuka untuk surat jalan');
+  }, 1500);  // Mulai dari 1500ms, naikkan kalau masih kosong
 }
 
 function kirimWASuratJalan(id) {

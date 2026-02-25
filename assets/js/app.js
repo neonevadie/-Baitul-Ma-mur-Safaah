@@ -3022,61 +3022,61 @@ async function updateSJField(id, field, value) {
 }
 
 function printSuratJalan(id) {
-  console.log('Start print surat jalan ID:', id);
+  console.log('Start print surat jalan untuk ID:', id);
 
-  // Buka preview dulu (pastikan user lihat konten di layar)
   openPreviewSuratJalan(id);
 
-  // Tunggu sampai konten muncul di layar (gunakan interval agar pintar)
-  const intervalCheck = setInterval(() => {
-    // Selector ini berdasarkan screenshot: cari container dengan teks 'SURAT JALAN' atau class/id yang kamu pakai
-    const sjContainer = document.querySelector('.sj-print-area') || 
-                        document.querySelector('div[style*="Kepada Yth"]')?.closest('div') || 
-                        document.querySelector('.preview-container');  // ganti sesuai HTML kamu
+  // Gunakan interval untuk deteksi ketika modal terbuka dan konten ada
+  const interval = setInterval(() => {
+    // Selector lebih spesifik berdasarkan screenshot kamu: cari container dengan teks 'SURAT JALAN' atau 'Kepada Yth'
+    const sjModalContent = document.querySelector('.modal-content') ||  // kalau pakai Bootstrap atau modal class
+                           document.querySelector('div:contains("SURAT JALAN")') ||  // pseudo, ganti dengan actual
+                           document.querySelector('[class*="preview"]') ||  // kalau ada class preview
+                           document.querySelector('.sj-print-area');  // fallback ke class lama
 
-    if (sjContainer && sjContainer.innerHTML.includes('SURAT JALAN') && sjContainer.querySelector('table')) {
-      clearInterval(intervalCheck);
+    if (sjModalContent && sjModalContent.innerHTML.includes('SURAT JALAN') && sjModalContent.querySelector('table')) {
+      clearInterval(interval);
 
-      console.log('Konten surat jalan ditemukan, siap copy. Panjang HTML:', sjContainer.innerHTML.length);
+      console.log('Modal surat jalan terdeteksi, siap print. Panjang konten:', sjModalContent.innerHTML.length);
 
-      // Buat window baru
-      const printWindow = window.open('', '_blank', 'width=1000,height=800,scrollbars=yes');
-      if (!printWindow) {
-        alert('Izinkan popup browser untuk print surat jalan!');
+      // Buka window baru
+      const printWin = window.open('', '_blank');
+      if (!printWin) {
+        alert('Izinkan popup untuk print surat jalan!');
         return;
       }
 
-      printWindow.document.write(`
+      printWin.document.write(`
         <!DOCTYPE html>
         <html lang="id">
         <head>
           <meta charset="UTF-8">
-          <title>Surat Jalan No. ${id || 'baru'} - BMS</title>
+          <title>Surat Jalan - BMS</title>
           <link rel="stylesheet" href="assets/css/style.css">
           <style>
             body { margin: 0; padding: 1cm; background: white; color: black; font-family: Arial, sans-serif; }
+            .modal-content, .preview-container { display: block !important; visibility: visible !important; opacity: 1 !important; }
             table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid black; padding: 8px; text-align: left; }
+            th, td { border: 1px solid black; padding: 8px; }
             @media print {
-              body { padding: 1cm !important; background: white !important; }
+              body { padding: 1cm !important; }
               * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             }
           </style>
         </head>
         <body onload="window.print(); setTimeout(() => window.close(), 6000);">
-          ${sjContainer.outerHTML}
+          ${sjModalContent.outerHTML}
         </body>
         </html>
       `);
 
-      printWindow.document.close();
+      printWin.document.close();
 
-      console.log('Print window dibuka untuk surat jalan');
+      console.log('Popup print dibuka');
     }
-  }, 800);  // Cek setiap 0.8 detik
+  }, 700);
 
-  // Stop setelah 20 detik kalau gagal
-  setTimeout(() => clearInterval(intervalCheck), 20000);
+  setTimeout(() => clearInterval(interval), 15000);  // stop kalau gagal
 }
 
 function kirimWASuratJalan(id) {

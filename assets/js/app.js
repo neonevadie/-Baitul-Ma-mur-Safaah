@@ -651,25 +651,36 @@ function initData() {
 // ───────────────────── FIRESTORE LOAD ───────────────────────────
 async function loadAllFromFirestore() {
   const { FS } = window;
+  const role = currentUser?.role || 'sales';
+  const isOwnerAdmin = role === 'owner' || role === 'admin';
   updateFBStatus('loading');
   try {
-    const [sB, sI, sM, sP, sPm, sL, sN, sG, sSJ] = await Promise.all([
+    // Query dasar untuk semua role
+    const baseQueries = [
       FS.getDocs(FS.query(FS.col('barang'),       FS.orderBy('_ts','desc'))),
       FS.getDocs(FS.query(FS.col('invoice'),      FS.orderBy('_ts','desc'))),
       FS.getDocs(FS.query(FS.col('mitra'),        FS.orderBy('_ts','desc'))),
-      FS.getDocs(FS.query(FS.col('pengeluaran'),  FS.orderBy('_ts','desc'))),
-      FS.getDocs(FS.query(FS.col('pembelian'),    FS.orderBy('_ts','desc'))),
-      FS.getDocs(FS.query(FS.col('log'),          FS.orderBy('_ts','desc'), FS.limit(100))),
       FS.getDocs(FS.query(FS.col('notifikasi'),   FS.orderBy('_ts','desc'), FS.limit(50))),
       FS.getDocs(FS.query(FS.col('gudang'),       FS.orderBy('_ts','desc'))),
       FS.getDocs(FS.query(FS.col('surat_jalan'),  FS.orderBy('_ts','desc'))),
-    ]);
+    ];
+    // Query tambahan hanya untuk owner/admin
+    const adminQueries = isOwnerAdmin ? [
+      FS.getDocs(FS.query(FS.col('pengeluaran'),  FS.orderBy('_ts','desc'))),
+      FS.getDocs(FS.query(FS.col('pembelian'),    FS.orderBy('_ts','desc'))),
+      FS.getDocs(FS.query(FS.col('log'),          FS.orderBy('_ts','desc'), FS.limit(100))),
+    ] : [];
+
+    const results = await Promise.all([...baseQueries, ...adminQueries]);
+    const [sB, sI, sM, sN, sG, sSJ] = results;
+    const [sP, sPm, sL] = isOwnerAdmin ? results.slice(6) : [null, null, null];
+
     if (!sB.empty)  DB.barang      = sB.docs.map(d  => ({ _id:d.id,...d.data() }));
     if (!sI.empty)  DB.invoice     = sI.docs.map(d  => ({ _id:d.id,...d.data() }));
     if (!sM.empty)  DB.mitra       = sM.docs.map(d  => ({ _id:d.id,...d.data() }));
-    if (!sP.empty)  DB.pengeluaran = sP.docs.map(d  => ({ _id:d.id,...d.data() }));
-    if (!sPm.empty) DB.pembelian   = sPm.docs.map(d => ({ _id:d.id,...d.data() }));
-    if (!sL.empty)  DB.log         = sL.docs.map(d  => ({ _id:d.id,...d.data() }));
+    if (sP  && !sP.empty)  DB.pengeluaran = sP.docs.map(d  => ({ _id:d.id,...d.data() }));
+    if (sPm && !sPm.empty) DB.pembelian   = sPm.docs.map(d => ({ _id:d.id,...d.data() }));
+    if (sL  && !sL.empty)  DB.log         = sL.docs.map(d  => ({ _id:d.id,...d.data() }));
     if (!sN.empty)  DB.notifikasi  = sN.docs.map(d  => ({ _id:d.id,...d.data() }));
     if (!sG.empty)  DB.gudang      = sG.docs.map(d  => ({ _id:d.id,...d.data() }));
     if (!sSJ.empty) DB.surat_jalan = sSJ.docs.map(d => ({ _id:d.id,...d.data() }));
@@ -698,15 +709,19 @@ function setupRealtimeListeners() {
   FS.onSnapshot(FS.query(FS.col('mitra'),      FS.orderBy('_ts','desc')), s => {
     if(!s.empty) { DB.mitra=s.docs.map(d=>({_id:d.id,...d.data()})); renderMitra(); fillDropdowns(); }
   });
-  FS.onSnapshot(FS.query(FS.col('pengeluaran'),FS.orderBy('_ts','desc')), s => {
-    if(!s.empty) { DB.pengeluaran=s.docs.map(d=>({_id:d.id,...d.data()})); renderPengeluaran(); }
-  });
-  FS.onSnapshot(FS.query(FS.col('pembelian'),  FS.orderBy('_ts','desc')), s => {
-    if(!s.empty) { DB.pembelian=s.docs.map(d=>({_id:d.id,...d.data()})); renderPembelian(); }
-  });
-  FS.onSnapshot(FS.query(FS.col('log'),        FS.orderBy('_ts','desc'), FS.limit(100)), s => {
-    DB.log=s.docs.map(d=>({_id:d.id,...d.data()})); renderLog();
-  });
+  // Pengeluaran, pembelian, log: hanya untuk owner/admin
+  const isOwnerAdmin = currentUser?.role === 'owner' || currentUser?.role === 'admin';
+  if (isOwnerAdmin) {
+    FS.onSnapshot(FS.query(FS.col('pengeluaran'),FS.orderBy('_ts','desc')), s => {
+      if(!s.empty) { DB.pengeluaran=s.docs.map(d=>({_id:d.id,...d.data()})); renderPengeluaran(); }
+    });
+    FS.onSnapshot(FS.query(FS.col('pembelian'),  FS.orderBy('_ts','desc')), s => {
+      if(!s.empty) { DB.pembelian=s.docs.map(d=>({_id:d.id,...d.data()})); renderPembelian(); }
+    });
+    FS.onSnapshot(FS.query(FS.col('log'),        FS.orderBy('_ts','desc'), FS.limit(100)), s => {
+      DB.log=s.docs.map(d=>({_id:d.id,...d.data()})); renderLog();
+    });
+  }
   FS.onSnapshot(FS.query(FS.col('chat'),       FS.orderBy('_ts','asc'),  FS.limit(50)),  s => {
     if(!s.empty) {
       const newMessages = s.docs.map(d=>({_id:d.id,...d.data()}));

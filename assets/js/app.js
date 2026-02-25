@@ -7,43 +7,18 @@
 
 // ───────────────────── MENU CONFIG ─────────────────────────────
 const MENU_CONFIG = [
-  { id:'dashboard',  label:'Dashboard',          icon:'fa-gauge',          sub:'Ringkasan bisnis hari ini' },
-  { id:'invoice',    label:'Transaksi',           icon:'fa-receipt',        sub:'Daftar transaksi penjualan' },
-  { id:'barang',     label:'Data Barang',         icon:'fa-box-open',       sub:'Kelola produk & inventaris' },
-  { id:'stok',       label:'Info Stok',           icon:'fa-warehouse',      sub:'Informasi stok barang' },
-  { id:'mitra',      label:'Mitra Bisnis',        icon:'fa-handshake',      sub:'Pelanggan & pemasok' },
-  { id:'keuangan',   label:'Keuangan',            icon:'fa-chart-line',     sub:'Laporan keuangan & aset' },
-  { id:'laporan',    label:'Laporan & Analitik',  icon:'fa-chart-bar',      sub:'Analisis performa bisnis' },
-  { id:'sales_dash', label:'Dashboard Sales',     icon:'fa-user-chart',     sub:'Performa & bonus penjualan' },
+  { id:'dashboard',  label:'Dashboard',          icon:'fa-gauge',         sub:'Ringkasan bisnis hari ini' },
+  { id:'barang',     label:'Data Barang',         icon:'fa-box-open',      sub:'Kelola produk & inventaris' },
+  { id:'invoice',    label:'Invoice',             icon:'fa-file-invoice',  sub:'Buat & kelola invoice' },
+  { id:'stok',       label:'Info Stok',           icon:'fa-warehouse',     sub:'Informasi stok barang' },
+  { id:'mitra',      label:'Mitra Bisnis',        icon:'fa-handshake',     sub:'Pelanggan & pemasok' },
+  { id:'keuangan',   label:'Keuangan',            icon:'fa-chart-line',    sub:'Laporan keuangan & aset' },
+  { id:'laporan',    label:'Laporan & Analitik',  icon:'fa-chart-bar',     sub:'Analisis performa bisnis' },
+  { id:'sales_dash', label:'Dashboard Sales',     icon:'fa-user-chart',    sub:'Performa & bonus penjualan' },
   { id:'opname',     label:'Stock Opname',        icon:'fa-clipboard-check',sub:'Audit & generate laporan stok' },
-  { id:'settings',   label:'Pengaturan',          icon:'fa-cog',            sub:'Kelola pengguna & data' },
-  { id:'log',        label:'Log Aktivitas',       icon:'fa-list-check',     sub:'Rekam jejak aktivitas tim' },
+  { id:'settings',   label:'Pengaturan',          icon:'fa-cog',           sub:'Kelola pengguna & data' },
   { id:'tutorial',   label:'Panduan',             icon:'fa-circle-question',sub:'Cara pakai sistem' },
 ];
-
-// Grup menu: setiap grup bisa expand/collapse
-const MENU_GROUPS = [
-  { id:'g-dashboard', label:'Dashboard',     icon:'fa-gauge',           single:'dashboard' },
-  { id:'g-transaksi', label:'Transaksi',     icon:'fa-receipt',         single:'invoice'   },
-  { id:'g-data',      label:'Data Bisnis',   icon:'fa-boxes-stacked',   children:[
-      { id:'barang',  label:'Data Barang',   icon:'fa-box-open'   },
-      { id:'mitra',   label:'Mitra Bisnis',  icon:'fa-handshake'  },
-      { id:'stok',    label:'Info Stok',     icon:'fa-warehouse'  },
-  ]},
-  { id:'g-keu',       label:'Keuangan',      icon:'fa-chart-line',      children:[
-      { id:'keuangan',   label:'Keuangan',           icon:'fa-wallet'     },
-      { id:'laporan',    label:'Laporan & Analitik',  icon:'fa-chart-bar'  },
-      { id:'sales_dash', label:'Dashboard Sales',     icon:'fa-user-chart' },
-  ]},
-  { id:'g-stok',      label:'Stock Opname', icon:'fa-clipboard-check',  single:'opname'    },
-  { id:'g-setting',   label:'Pengaturan',   icon:'fa-cog',              children:[
-      { id:'settings', label:'Pengaturan',    icon:'fa-cog'        },
-      { id:'log',      label:'Log Aktivitas', icon:'fa-list-check' },
-  ]},
-  { id:'g-tutorial',  label:'Panduan',      icon:'fa-circle-question',  single:'tutorial'  },
-];
-
-let openGroups = new Set(['g-data', 'g-setting']);
 
 // ───────────────────── STATE ────────────────────────────────────
 let currentUser  = null;
@@ -239,10 +214,10 @@ function buildProfileFromEmail(email, uid) {
 
   if (email === roleEmails.owner || email.startsWith('owner@')) {
     role='owner'; name='Owner BMS'; avatar='O'; label='Pemilik / Administrator';
-    menus=['dashboard','barang','invoice','stok','mitra','keuangan','laporan','sales_dash','opname','settings','log','tutorial'];
+    menus=['dashboard','barang','invoice','stok','mitra','keuangan','laporan','opname','settings','tutorial'];
   } else if (email === roleEmails.admin || email.startsWith('admin@')) {
     role='admin'; name='Admin Keuangan'; avatar='R'; label='Admin Keuangan';
-    menus=['dashboard','barang','invoice','stok','mitra','keuangan','laporan','opname','settings'];
+    menus=['dashboard','barang','invoice','stok','mitra','keuangan','opname','settings'];
   } else {
     const su = (cfg.salesUsers || []).find(s => s.email === email);
     if (su) { name=su.name; avatar=su.avatar||name[0]; }
@@ -275,11 +250,9 @@ function applyRoleRestrictions(role) {
   if (el('btn-tambah-barang')) el('btn-tambah-barang').style.display = isSales ? 'none' : '';
   document.querySelectorAll('#page-stok .btn-success, #page-stok .btn-danger')
     .forEach(b => b.style.display = isSales ? 'none' : '');
-  // Log Aktivitas hanya owner — nav-log ada di dalam group g-setting
+  // Log Aktivitas hanya owner
   const logNav = document.getElementById('nav-log');
   if (logNav) logNav.style.display = isOwner ? '' : 'none';
-  // Kalau bukan owner, grup pengaturan hanya tampilkan settings saja
-  // (log tersembunyi secara nav-item, tapi group tetap ada untuk settings)
 }
 
 // ───────────────────── ONLINE STATUS ────────────────────────────
@@ -313,77 +286,21 @@ function updateOnlineCount() {
 function buildNav(allowed) {
   const nav = document.getElementById('sidebar-nav');
   nav.innerHTML = '<div class="nav-label">MENU UTAMA</div>';
-
-  MENU_GROUPS.forEach(group => {
-    // Filter: apakah grup ini ada itemnya yang diizinkan?
-    const allowedChildren = group.children
-      ? group.children.filter(c => allowed.includes(c.id))
-      : (allowed.includes(group.single) ? [group] : []);
-    if (allowedChildren.length === 0) return;
-
-    if (group.single) {
-      // Item tunggal — langsung nav-item biasa
-      const el = document.createElement('div');
-      el.className = 'nav-item';
-      el.id = 'nav-' + group.single;
-      el.onclick = () => { navigateTo(group.single); if(window.innerWidth<=768) closeSidebar(); };
-      el.innerHTML = `<i class="fas ${group.icon}"></i><span>${group.label}</span>`;
-      nav.appendChild(el);
-    } else {
-      // Grup dengan sub-menu
-      const isOpen = openGroups.has(group.id);
-      const grpEl = document.createElement('div');
-      grpEl.className = 'nav-group' + (isOpen ? ' open' : '');
-      grpEl.id = 'navgrp-' + group.id;
-
-      const hdr = document.createElement('div');
-      hdr.className = 'nav-group-header';
-      hdr.onclick = () => toggleNavGroup(group.id);
-      hdr.innerHTML = `<i class="fas ${group.icon}"></i><span>${group.label}</span><i class="fas fa-chevron-right nav-chevron"></i>`;
-      grpEl.appendChild(hdr);
-
-      const body = document.createElement('div');
-      body.className = 'nav-group-body';
-      allowedChildren.forEach(child => {
-        const ci = document.createElement('div');
-        ci.className = 'nav-item nav-sub-item';
-        ci.id = 'nav-' + child.id;
-        ci.onclick = () => { navigateTo(child.id); if(window.innerWidth<=768) closeSidebar(); };
-        ci.innerHTML = `<i class="fas ${child.icon}"></i><span>${child.label}</span>`;
-        body.appendChild(ci);
-      });
-      grpEl.appendChild(body);
-      nav.appendChild(grpEl);
-    }
+  MENU_CONFIG.filter(m => allowed.includes(m.id)).forEach(m => {
+    const el = document.createElement('div');
+    el.className = 'nav-item';
+    el.id = 'nav-' + m.id;
+    el.onclick = () => { navigateTo(m.id); if(window.innerWidth<=768) toggleSidebar(); };
+    el.innerHTML = `<i class="fas ${m.icon}"></i> <span>${m.label}</span>`;
+    nav.appendChild(el);
   });
-}
-
-function toggleNavGroup(groupId) {
-  const el = document.getElementById('navgrp-' + groupId);
-  if (!el) return;
-  const isOpen = el.classList.contains('open');
-  if (isOpen) { el.classList.remove('open'); openGroups.delete(groupId); }
-  else { el.classList.add('open'); openGroups.add(groupId); }
-}
-
-function closeSidebar() {
-  document.getElementById('sidebar').classList.remove('mobile-open');
-  document.getElementById('sidebar-overlay').classList.remove('show');
 }
 
 function navigateTo(id) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   const navEl = document.getElementById('nav-' + id);
-  if (navEl) {
-    navEl.classList.add('active');
-    // Auto-open parent group if it's a sub-item
-    const grp = navEl.closest('.nav-group');
-    if (grp && !grp.classList.contains('open')) {
-      grp.classList.add('open');
-      openGroups.add(grp.id.replace('navgrp-',''));
-    }
-  }
+  if (navEl) navEl.classList.add('active');
   const pageEl = document.getElementById('page-' + id);
   if (pageEl) pageEl.classList.add('active');
   const cfg = MENU_CONFIG.find(m => m.id === id);
@@ -396,7 +313,6 @@ function navigateTo(id) {
   if (id === 'settings')   renderSettings();
   if (id === 'opname')     renderOpname();
   if (id === 'keuangan')   renderAssets();
-  if (id === 'log')        renderLog();
 }
 
 // ───────────────────── INIT ─────────────────────────────────────
@@ -413,8 +329,7 @@ function initData() {
   }
   setDefaultDates();
   renderChatMessages();
-  updateKategoriDropdowns();
-  document.getElementById('inv-no').value = `TRX-${new Date().getFullYear()}-${invCounter}`;
+  document.getElementById('inv-no').value = `INV-${new Date().getFullYear()}-${invCounter}`;
 }
 
 function renderAll() {
@@ -592,33 +507,21 @@ function renderBarang() {
 function renderInvoice() {
   const tbody = document.getElementById('tbody-invoice');
   if (!tbody) return;
-  const canEdit = currentUser && (currentUser.role==='owner'||currentUser.role==='admin');
-  tbody.innerHTML = DB.invoice.map((inv,i) => {
-    const metodeBayar = inv.metodeBayar || 'Tempo';
-    const badgeMetode = metodeBayar === 'Tunai'
-      ? 'badge-green' : metodeBayar === 'Transfer'
-      ? 'badge-blue' : 'badge-amber';
-    const badgeStatus = inv.status==='Lunas'?'badge-green':inv.status==='Jatuh Tempo'?'badge-red':'badge-amber';
-    return `<tr>
+  tbody.innerHTML = DB.invoice.map((inv,i) => `
+    <tr>
       <td><strong style="color:var(--primary-light)">${inv.no}</strong></td>
       <td>${inv.tgl}</td>
       <td><strong>${inv.mitra}</strong></td>
       <td>${inv.salesName||'-'}</td>
       <td><strong>Rp ${(inv.total||0).toLocaleString('id-ID')}</strong></td>
-      <td><span class="badge ${badgeMetode}">${metodeBayar}</span></td>
-      <td><span class="badge ${badgeStatus}">${inv.status}</span></td>
-      <td>${metodeBayar==='Tempo'?inv.tempo:'-'}</td>
-      <td>
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-outline btn-icon btn-sm" onclick="showInvoicePreview(${i})" title="Preview"><i class="fas fa-eye"></i></button>
-          ${canEdit&&inv.status!=='Lunas'?`<button class="btn btn-success btn-icon btn-sm" onclick="tandaiLunas(${i})" title="Tandai Lunas"><i class="fas fa-check"></i></button>`:''}
-          <button class="btn btn-primary btn-icon btn-sm" onclick="window.print()" title="Cetak"><i class="fas fa-print"></i></button>
-          ${canEdit?`<button class="btn btn-danger btn-icon btn-sm" onclick="hapusTransaksi(${i})" title="Hapus"><i class="fas fa-trash"></i></button>`:''}
-        </div>
-      </td>
-    </tr>`;
-  }).join('') || '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text-muted)">Belum ada transaksi</td></tr>';
-  renderInvoiceStats();
+      <td><span class="badge ${inv.status==='Lunas'?'badge-green':inv.status==='Jatuh Tempo'?'badge-red':'badge-amber'}">${inv.status}</span></td>
+      <td>${inv.tempo}</td>
+      <td><div style="display:flex;gap:6px">
+        <button class="btn btn-outline btn-icon btn-sm" onclick="showInvoicePreview(${i})" title="Preview"><i class="fas fa-eye"></i></button>
+        <button class="btn btn-success btn-icon btn-sm" onclick="tandaiLunas(${i})" title="Tandai Lunas"><i class="fas fa-check"></i></button>
+        <button class="btn btn-primary btn-icon btn-sm" onclick="window.print()" title="Cetak"><i class="fas fa-print"></i></button>
+      </div></td>
+    </tr>`).join('');
 }
 
 function renderStok() {
@@ -833,74 +736,30 @@ function renderOpname() {
   if (!el) return;
   const date = new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
   document.getElementById('opname-date').textContent = 'Tanggal: ' + date;
-  el.innerHTML = DB.barang.map((b,i) => {
-    const isCritical = b.stok <= b.minStok;
-    return `
-    <tr id="op-row-${i}">
+  el.innerHTML = DB.barang.map((b,i) => `
+    <tr>
       <td><code>${b.kode}</code></td>
       <td><strong>${b.nama}</strong></td>
       <td>${b.satuan}</td>
       <td style="font-weight:700">${b.stok}</td>
       <td><input type="number" id="op-act-${i}" value="${b.stok}" min="0" style="width:80px;border:1.5px solid var(--border);border-radius:8px;padding:6px;text-align:center" oninput="updateOpnameDiff(${i})"></td>
       <td id="op-diff-${i}" style="font-weight:700">0</td>
-      <td id="op-status-${i}"><span class="badge ${isCritical?'badge-red':'badge-green'}">${isCritical?'⚠️ Kritis':'✅ Aman'}</span></td>
+      <td><span class="badge ${b.stok<=b.minStok?'badge-red':'badge-green'}">${b.stok<=b.minStok?'⚠️ Kritis':'✅ Aman'}</span></td>
       <td><input type="text" id="op-note-${i}" placeholder="Catatan..." style="width:120px;border:1.5px solid var(--border);border-radius:8px;padding:6px;font-size:12px"></td>
-      <td><button class="btn btn-primary btn-sm btn-icon" onclick="simpanOpnameBaris(${i})" title="Simpan baris ini"><i class="fas fa-save"></i></button></td>
-    </tr>`}).join('');
+    </tr>`).join('');
 }
 
 function updateOpnameDiff(i) {
   const sistem  = DB.barang[i].stok || 0;
-  const minStok = DB.barang[i].minStok || 0;
   const aktual  = parseInt(document.getElementById(`op-act-${i}`)?.value)||0;
   const selisih = aktual - sistem;
   const el = document.getElementById(`op-diff-${i}`);
-  if (el) {
-    el.textContent = (selisih > 0 ? '+' : '') + selisih;
-    el.style.color = selisih < 0 ? 'var(--danger)' : selisih > 0 ? 'var(--accent2)' : 'var(--text-muted)';
-  }
-  // Update status badge berdasarkan stok aktual vs minStok
-  const statusEl = document.getElementById(`op-status-${i}`);
-  if (statusEl) {
-    const isCritical = aktual <= minStok;
-    statusEl.innerHTML = `<span class="badge ${isCritical?'badge-red':'badge-green'}">${isCritical?'⚠️ Kritis':'✅ Aman'}</span>`;
-  }
+  if (!el) return;
+  el.textContent = (selisih > 0 ? '+' : '') + selisih;
+  el.style.color = selisih < 0 ? 'var(--danger)' : selisih > 0 ? 'var(--accent2)' : 'var(--text-muted)';
 }
 
-async function simpanOpnameBaris(i) {
-  const b      = DB.barang[i];
-  const aktual = parseInt(document.getElementById(`op-act-${i}`)?.value)||b.stok;
-  const note   = document.getElementById(`op-note-${i}`)?.value||'';
-  const old    = b.stok;
-  b.stok = aktual;
-  if (window.FIREBASE_READY && b._id) {
-    try { await window.FS.updateDoc(window.FS.docRef('barang', b._id), { stok: aktual }); }
-    catch(e) { console.warn('Firebase update gagal:', e); }
-  }
-  addLog('stok', `Opname: ${b.nama} — ${old} → ${aktual}${note?' ('+note+')':''}`);
-  const inp = document.getElementById(`op-act-${i}`);
-  if (inp) inp.style.border = '1.5px solid var(--accent2)';
-  showToast(`✅ ${b.nama} tersimpan: stok ${aktual}`);
-}
-
-async function simpanSemuaOpname() {
-  if (!DB.barang.length) { showToast('Tidak ada barang untuk disimpan','warning'); return; }
-  let saved = 0;
-  for (let i = 0; i < DB.barang.length; i++) {
-    const b      = DB.barang[i];
-    const aktual = parseInt(document.getElementById(`op-act-${i}`)?.value)||b.stok;
-    const note   = document.getElementById(`op-note-${i}`)?.value||'';
-    b.stok = aktual;
-    if (window.FIREBASE_READY && b._id) {
-      try { await window.FS.updateDoc(window.FS.docRef('barang', b._id), { stok: aktual }); } catch(e) {}
-    }
-    saved++;
-  }
-  addLog('stok', `Stock Opname selesai — ${saved} barang diperbarui`);
-  showToast(`✅ Semua stok tersimpan (${saved} barang diperbarui)!`);
-  renderOpname();
-  updateRunningText();
-} {
+async function generateOpname() {
   const rows = DB.barang.map((b,i) => {
     const aktual = parseInt(document.getElementById(`op-act-${i}`)?.value)||b.stok;
     const note   = document.getElementById(`op-note-${i}`)?.value||'';
@@ -928,12 +787,7 @@ function renderSettings() {
   safe('set-company-npwp',  c.npwp);
   safe('set-company-rek',   c.rekening);
   safe('set-bonus-rate', appConfig?.bonusRate||2);
-  // Load kategori dari appConfig cloud jika ada
-  if (appConfig?.kategori?.length) {
-    localStorage.setItem('bms_kategori', JSON.stringify(appConfig.kategori));
-  }
-  renderKategoriSettings();
-  updateKategoriDropdowns();
+
   // Render users list
   renderUsersList();
 }
@@ -964,77 +818,6 @@ function renderUsersList() {
     </div>`).join('')}`;
 }
 
-// ───────────────────── KATEGORI MANAGEMENT ─────────────────────
-const DEFAULT_KATEGORI = ['Beras & Tepung','Minyak & Lemak','Gula & Pemanis','Bumbu & Rempah','Minuman','Snack & Camilan','Lainnya'];
-
-function getKategoriList() {
-  try {
-    const saved = localStorage.getItem('bms_kategori');
-    return saved ? JSON.parse(saved) : [...DEFAULT_KATEGORI];
-  } catch(e) { return [...DEFAULT_KATEGORI]; }
-}
-
-function saveKategoriList(list) {
-  localStorage.setItem('bms_kategori', JSON.stringify(list));
-  // Sinkronisasi ke Firestore appConfig jika online
-  if (appConfig) {
-    appConfig.kategori = list;
-    window.FS?.setDoc(window.FS.docRef('test','appConfig'), appConfig).catch(()=>{});
-  }
-}
-
-function renderKategoriSettings() {
-  const el = document.getElementById('settings-kategori-list');
-  if (!el) return;
-  const list = getKategoriList();
-  el.innerHTML = list.map((k,i) => `
-    <div class="settings-user-row" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg);border-radius:10px;margin-bottom:8px">
-      <span class="badge badge-blue" style="flex-shrink:0"><i class="fas fa-tag"></i></span>
-      <strong style="flex:1;font-size:13.5px">${k}</strong>
-      ${DEFAULT_KATEGORI.includes(k)
-        ? '<span style="font-size:11px;color:var(--text-muted)">Default</span>'
-        : `<button class="btn btn-danger btn-sm" onclick="hapusKategori(${i})" style="padding:4px 10px"><i class="fas fa-trash"></i></button>`
-      }
-    </div>`).join('');
-}
-
-function tambahKategori() {
-  const input = document.getElementById('new-kategori-nama');
-  const nama  = input?.value.trim();
-  if (!nama) { showToast('Isi nama kategori!','error'); return; }
-  const list = getKategoriList();
-  if (list.some(k=>k.toLowerCase()===nama.toLowerCase())) { showToast('Kategori sudah ada!','warning'); return; }
-  list.push(nama);
-  saveKategoriList(list);
-  if (input) input.value='';
-  renderKategoriSettings();
-  updateKategoriDropdowns();
-  addLog('setting','Tambah kategori: '+nama);
-  showToast('✅ Kategori "'+nama+'" ditambahkan!');
-}
-
-function hapusKategori(i) {
-  const list = getKategoriList();
-  const nama = list[i];
-  if (!confirm(`Hapus kategori "${nama}"?`)) return;
-  list.splice(i,1);
-  saveKategoriList(list);
-  renderKategoriSettings();
-  updateKategoriDropdowns();
-  addLog('setting','Hapus kategori: '+nama);
-  showToast('🗑️ Kategori dihapus!');
-}
-
-function updateKategoriDropdowns() {
-  const list = getKategoriList();
-  const opts = list.map(k=>`<option>${k}</option>`).join('');
-  // Update semua dropdown kategori di form
-  ['b-kategori','eb-kategori'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { const cur=el.value; el.innerHTML=opts; if(cur) el.value=cur; }
-  });
-}
-
 async function saveCompanyProfile() {
   const g = (id) => document.getElementById(id)?.value.trim()||'';
   const company = {
@@ -1044,9 +827,8 @@ async function saveCompanyProfile() {
   };
   const bonusRate = parseInt(document.getElementById('set-bonus-rate')?.value)||2;
   if (!appConfig) appConfig = {};
-  appConfig.company   = company;
+  appConfig.company = company;
   appConfig.bonusRate = bonusRate;
-  appConfig.kategori  = getKategoriList();
   try {
     await window.FS.setDoc(window.FS.docRef('test','appConfig'), appConfig);
     showToast('✅ Profil perusahaan tersimpan!');
@@ -1156,86 +938,34 @@ async function restoreData(event) {
 }
 
 // ───────────────────── NOTIFICATIONS ────────────────────────────
-function checkStokKritisNotif() {
-  // Tambah notif stok kritis SEBELUM render — pakai Set untuk cegah duplikat
-  DB.barang.filter(b => b.stok <= b.minStok).forEach(b => {
-    const key = 'stok-kritis-' + b.kode;
-    const exists = DB.notifikasi.some(n => n.key === key && !n.baca);
+function renderNotifications() {
+  const list  = document.getElementById('notif-list');
+  if (!list) return;
+  const unread = DB.notifikasi.filter(n=>!n.baca).length;
+  const dot = document.getElementById('notif-dot');
+  if (dot) dot.style.display = unread ? '' : 'none';
+  const iM = {danger:'fa-exclamation-circle',warning:'fa-clock',success:'fa-check-circle',info:'fa-info-circle'};
+  const cM = {danger:'rgba(239,68,68,0.1)',warning:'rgba(245,158,11,0.1)',success:'rgba(16,185,129,0.1)',info:'rgba(37,99,168,0.1)'};
+  const fM = {danger:'var(--danger)',warning:'var(--accent)',success:'var(--accent2)',info:'var(--primary-light)'};
+  list.innerHTML = DB.notifikasi.map((n,i) => `
+    <div class="notif-item" onclick="bacaNotif(${i})">
+      <div class="notif-icon" style="background:${cM[n.tipe]};color:${fM[n.tipe]}"><i class="fas ${iM[n.tipe]}"></i></div>
+      <div style="flex:1"><p>${n.pesan}</p><span>${n.waktu}</span></div>
+      ${!n.baca?'<div class="unread-dot"></div>':''}
+    </div>`).join('');
+  // Auto-notif stok kritis
+  DB.barang.filter(b=>b.stok<=b.minStok).forEach(b=>{
+    const exists = DB.notifikasi.some(n=>n.pesan.includes(b.nama)&&n.baca===false);
     if (!exists) {
-      DB.notifikasi.unshift({
-        id: Date.now() + Math.random(), key,
-        pesan: `⚠️ Stok ${b.nama} kritis — sisa ${b.stok} ${b.satuan}`,
-        waktu: 'Baru saja', tipe: 'danger', baca: false
-      });
+      DB.notifikasi.unshift({ id:Date.now(), pesan:`⚠️ Stok ${b.nama} kritis — sisa ${b.stok} ${b.satuan}`, waktu:'Baru saja', tipe:'danger', baca:false });
     }
   });
 }
 
-function renderNotifications() {
-  // Generate notif stok kritis dulu sebelum render
-  checkStokKritisNotif();
-
-  const list = document.getElementById('notif-list');
-  if (!list) return;
-
-  const unread = DB.notifikasi.filter(n => !n.baca).length;
-  const dot    = document.getElementById('notif-dot');
-  if (dot) {
-    dot.style.display = unread > 0 ? '' : 'none';
-    dot.textContent   = unread > 9 ? '9+' : String(unread || '');
-  }
-  // Update badge di header panel juga
-  const countBadge = document.getElementById('notif-count-badge');
-  if (countBadge) {
-    countBadge.style.display = unread > 0 ? '' : 'none';
-    countBadge.textContent   = unread > 9 ? '9+' : String(unread);
-  }
-
-  const iM = { danger:'fa-exclamation-circle', warning:'fa-clock', success:'fa-check-circle', info:'fa-info-circle' };
-  const cM = { danger:'rgba(239,68,68,0.1)', warning:'rgba(245,158,11,0.1)', success:'rgba(16,185,129,0.1)', info:'rgba(37,99,168,0.1)' };
-  const fM = { danger:'var(--danger)', warning:'var(--accent)', success:'var(--accent2)', info:'var(--primary-light)' };
-
-  list.innerHTML = DB.notifikasi.length === 0
-    ? '<div style="padding:28px;text-align:center;color:var(--text-muted)">✅ Tidak ada notifikasi</div>'
-    : DB.notifikasi.map((n, i) => `
-      <div class="notif-item${n.baca ? ' notif-read' : ''}" onclick="bacaNotif(${i})">
-        <div class="notif-icon" style="background:${cM[n.tipe]||cM.info};color:${fM[n.tipe]||fM.info}">
-          <i class="fas ${iM[n.tipe]||iM.info}"></i>
-        </div>
-        <div style="flex:1;min-width:0">
-          <p style="${n.baca?'color:var(--text-muted);font-weight:400':''}">${n.pesan}</p>
-          <span>${n.waktu}</span>
-        </div>
-        ${!n.baca ? '<div class="unread-dot" style="flex-shrink:0;margin-top:4px"></div>' : '<i class="fas fa-check" style="color:var(--accent2);font-size:11px;margin-top:4px;flex-shrink:0"></i>'}
-      </div>`).join('');
-}
-
-function bacaNotif(i) {
-  if (DB.notifikasi[i]) {
-    DB.notifikasi[i].baca = true;
-    renderNotifications(); // re-render langsung — index sudah benar
-  }
-}
-function markAllRead() {
-  DB.notifikasi.forEach(n => n.baca = true);
-  renderNotifications();
-  showToast('✅ Semua notifikasi ditandai dibaca');
-}
-function toggleNotif() {
-  const panel = document.getElementById('notif-panel');
-  panel.classList.toggle('open');
-  if (panel.classList.contains('open')) renderNotifications();
-}
-function toggleSidebar() {
-  const sb = document.getElementById('sidebar');
-  const ov = document.getElementById('sidebar-overlay');
-  sb.classList.toggle('mobile-open');
-  ov.classList.toggle('show', sb.classList.contains('mobile-open'));
-}
-function closeSidebar() {
-  document.getElementById('sidebar').classList.remove('mobile-open');
-  document.getElementById('sidebar-overlay').classList.remove('show');
-}
+function bacaNotif(i)  { DB.notifikasi[i].baca=true; renderNotifications(); }
+function markAllRead() { DB.notifikasi.forEach(n=>n.baca=true); renderNotifications(); showToast('✅ Semua notifikasi dibaca'); }
+function toggleNotif() { document.getElementById('notif-panel').classList.toggle('open'); }
+function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('mobile-open'); }
 
 // ───────────────────── SYNC ──────────────────────────────────────
 async function syncData() {
@@ -1282,84 +1012,7 @@ async function simpanBarang() {
   ['b-kode','b-nama','b-stok','b-hbeli','b-hjual','b-desc'].forEach(id=>{ const el=document.getElementById(id); if(el)el.value=''; });
 }
 
-function editBarang(i) {
-  const b = DB.barang[i];
-  if (!b) return;
-  // Isi form modal edit
-  const safe = (id,v) => { const el=document.getElementById(id); if(el) el.value=v||''; };
-  safe('eb-idx',   i);
-  safe('eb-kode',  b.kode);
-  safe('eb-nama',  b.nama);
-  safe('eb-hbeli', b.hbeli||0);
-  safe('eb-hjual', b.hjual||0);
-  safe('eb-stok',  b.stok||0);
-  safe('eb-minstock', b.minStok||20);
-  safe('eb-lokasi', b.lokasi||'');
-  // Kategori & satuan
-  const katEl = document.getElementById('eb-kategori');
-  if (katEl) {
-    // Isi options dari kategori yg ada + kategori barang ini
-    const cats = getKategoriList();
-    katEl.innerHTML = cats.map(c => `<option${c===b.kategori?' selected':''}>${c}</option>`).join('');
-  }
-  const satEl = document.getElementById('eb-satuan');
-  if (satEl) satEl.value = b.satuan||'Pcs';
-  // Preview foto existing
-  const prevEl = document.getElementById('eb-foto-preview');
-  if (prevEl) {
-    prevEl.innerHTML = (b.foto||[]).map(src =>
-      `<img src="${src}" style="width:64px;height:64px;object-fit:cover;border-radius:10px;border:2px solid var(--border)">`
-    ).join('');
-  }
-  openModal('modal-edit-barang');
-}
-
-async function simpanEditBarang() {
-  const i    = parseInt(document.getElementById('eb-idx')?.value);
-  const b    = DB.barang[i];
-  if (!b) return;
-  const nama = document.getElementById('eb-nama')?.value.trim();
-  const kode = document.getElementById('eb-kode')?.value.trim();
-  if (!nama||!kode) { showToast('Nama dan kode wajib diisi!','error'); return; }
-  // Ambil foto baru jika ada, jika tidak pakai foto lama
-  const prevEl  = document.getElementById('eb-foto-preview');
-  const newFoto = document.getElementById('eb-foto-input');
-  let fotoArr   = b.foto || [];
-  if (newFoto?.files?.length) {
-    const reads = Array.from(newFoto.files).slice(0,4).map(file => new Promise(res=>{
-      const r = new FileReader(); r.onload=e=>res(e.target.result); r.readAsDataURL(file);
-    }));
-    fotoArr = await Promise.all(reads);
-  }
-  const updated = {
-    kode, nama,
-    kategori : document.getElementById('eb-kategori')?.value || b.kategori,
-    satuan   : document.getElementById('eb-satuan')?.value   || b.satuan,
-    hbeli    : parseInt(document.getElementById('eb-hbeli')?.value)||0,
-    hjual    : parseInt(document.getElementById('eb-hjual')?.value)||0,
-    stok     : parseInt(document.getElementById('eb-stok')?.value)||0,
-    minStok  : parseInt(document.getElementById('eb-minstock')?.value)||20,
-    lokasi   : document.getElementById('eb-lokasi')?.value||'',
-    masuk    : b.masuk||0,
-    keluar   : b.keluar||0,
-    foto     : fotoArr,
-  };
-  try {
-    if (b._id) {
-      await window.FS.updateDoc(window.FS.docRef('barang', b._id), updated);
-    } else {
-      DB.barang[i] = { ...b, ...updated };
-      renderBarang(); renderStok(); fillDropdowns();
-    }
-    addLog('edit', `Edit barang: ${nama}`);
-    showToast('✅ Barang berhasil diupdate!');
-  } catch(e) {
-    DB.barang[i] = { ...b, ...updated };
-    renderBarang(); renderStok(); fillDropdowns();
-    showToast('✅ Barang diupdate (offline)');
-  }
-  closeModal('modal-edit-barang');
-}
+function editBarang(i) { showToast('⚙️ Fitur edit dalam pengembangan...','info'); }
 
 async function hapusBarang(i) {
   const b = DB.barang[i];
@@ -1387,41 +1040,19 @@ function previewFoto(event) {
   });
 }
 
-// Toggle field jatuh tempo berdasarkan metode bayar
-function toggleTempoField(metode) {
-  const row = document.getElementById('tempo-row');
-  if (row) row.style.display = metode === 'Tempo' ? 'flex' : 'none';
-}
-
-// Render ringkasan KPI di halaman transaksi
-function renderInvoiceStats() {
-  const total   = DB.invoice.length;
-  const lunas   = DB.invoice.filter(i=>i.status==='Lunas').reduce((s,i)=>s+(i.total||0),0);
-  const belum   = DB.invoice.filter(i=>i.status!=='Lunas').reduce((s,i)=>s+(i.total||0),0);
-  const cash    = DB.invoice.filter(i=>i.metodeBayar==='Tunai'||i.metodeBayar==='Transfer').reduce((s,i)=>s+(i.total||0),0);
-  const safe = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-  safe('trx-total-count', total);
-  safe('trx-lunas',  'Rp '+Math.round(lunas/1000)+'rb');
-  safe('trx-belum',  'Rp '+Math.round(belum/1000)+'rb');
-  safe('trx-cash',   'Rp '+Math.round(cash/1000)+'rb');
-}
-
 // ───────────────────── INVOICE CRUD ─────────────────────────────
 function addInvItem() {
   const tbody = document.getElementById('inv-items');
   const idx   = invItems.length;
   invItems.push({ nama:'', qty:1, satuan:'', harga:0, total:0 });
-  const opts = DB.barang.map(b=>`<option data-harga="${b.hjual}" data-satuan="${b.satuan}" data-stok="${b.stok}" ${b.stok<=0?'style="color:var(--danger)"':''}>
-    ${b.nama}${b.stok<=0?' (Habis)':' (Stok: '+b.stok+')'}
-  </option>`).join('');
+  const opts = DB.barang.map(b=>`<option data-harga="${b.hjual}" data-satuan="${b.satuan}">${b.nama}</option>`).join('');
   const row  = document.createElement('tr');
   row.innerHTML = `
-    <td><select style="border:1px solid var(--border);border-radius:8px;padding:6px;font-size:12.5px;width:200px" onchange="updateItemBarang(${idx},this)">
-      <option>Pilih Barang...</option>${opts}</select></td>
-    <td><input type="number" value="1" min="1" style="width:65px;border:1px solid var(--border);border-radius:8px;padding:6px;text-align:center" oninput="updateItemQty(${idx},this)"></td>
+    <td><select style="border:1px solid var(--border);border-radius:8px;padding:6px;font-size:12.5px;width:180px" onchange="updateItemBarang(${idx},this)">
+      <option>Pilih...</option>${opts}</select></td>
+    <td><input type="number" value="1" min="1" style="width:60px;border:1px solid var(--border);border-radius:8px;padding:6px;text-align:center" oninput="updateItemQty(${idx},this)"></td>
     <td id="inv-sat-${idx}" style="color:var(--text-muted)">-</td>
     <td id="inv-hp-${idx}"  style="color:var(--text-muted)">Rp 0</td>
-    <td id="inv-stok-${idx}" style="font-size:11.5px;color:var(--text-muted)">-</td>
     <td id="inv-tot-${idx}" style="font-weight:700">Rp 0</td>
     <td><button class="btn btn-danger btn-icon btn-sm" onclick="removeInvItem(${idx},this.closest('tr'))"><i class="fas fa-trash"></i></button></td>`;
   tbody.appendChild(row);
@@ -1429,37 +1060,18 @@ function addInvItem() {
 }
 
 function updateItemBarang(idx, sel) {
-  const opt    = sel.options[sel.selectedIndex];
-  const harga  = parseInt(opt.dataset.harga)||0;
+  const opt = sel.options[sel.selectedIndex];
+  const harga = parseInt(opt.dataset.harga)||0;
   const satuan = opt.dataset.satuan||'-';
-  const stok   = parseInt(opt.dataset.stok)||0;
-  // Nama bersih tanpa "(Stok:...)"
-  const nama   = opt.text.trim().replace(/\s*\(.*\)$/, '').trim();
-  invItems[idx] = { ...invItems[idx], nama, harga, satuan, stok, total:harga*(invItems[idx].qty||1) };
-  document.getElementById(`inv-sat-${idx}`).textContent  = satuan;
-  document.getElementById(`inv-hp-${idx}`).textContent   = 'Rp '+harga.toLocaleString('id-ID');
-  const stokEl = document.getElementById(`inv-stok-${idx}`);
-  if (stokEl) {
-    stokEl.innerHTML = stok <= 0
-      ? `<span style="color:var(--danger);font-weight:700">⛔ Habis</span>`
-      : `<span style="color:${stok<=10?'var(--accent)':'var(--accent2)'}">Sisa: ${stok}</span>`;
-  }
-  document.getElementById(`inv-tot-${idx}`).textContent  = 'Rp '+invItems[idx].total.toLocaleString('id-ID');
+  invItems[idx] = { ...invItems[idx], nama:opt.text, harga, satuan, total:harga*(invItems[idx].qty||1) };
+  document.getElementById(`inv-sat-${idx}`).textContent = satuan;
+  document.getElementById(`inv-hp-${idx}`).textContent  = 'Rp '+harga.toLocaleString('id-ID');
+  document.getElementById(`inv-tot-${idx}`).textContent = 'Rp '+invItems[idx].total.toLocaleString('id-ID');
   hitungTotal();
 }
 
 function updateItemQty(idx, input) {
-  const item  = invItems[idx];
-  const qty   = parseInt(input.value)||0;
-  const stok  = item.stok ?? 9999;
-  // Cegah input qty > stok
-  if (qty > stok) {
-    input.value = stok;
-    showToast(`⚠️ Maks qty: ${stok} (stok tersedia)`, 'warning');
-    invItems[idx].qty = stok;
-  } else {
-    invItems[idx].qty = qty;
-  }
+  invItems[idx].qty   = parseInt(input.value)||0;
   invItems[idx].total = invItems[idx].harga * invItems[idx].qty;
   const el = document.getElementById(`inv-tot-${idx}`);
   if (el) el.textContent = 'Rp '+invItems[idx].total.toLocaleString('id-ID');
@@ -1481,87 +1093,33 @@ function hitungTotal() {
   safe('inv-total',   'Rp '+Math.round(total).toLocaleString('id-ID'));
 }
 
-async function hapusTransaksi(i) {
-  const inv = DB.invoice[i];
-  if (!inv) return;
-  if (!confirm(`Hapus transaksi ${inv.no}?`)) return;
-  try {
-    if (inv._id) await window.FS.deleteDoc(window.FS.docRef('invoice', inv._id));
-    else { DB.invoice.splice(i,1); renderInvoice(); }
-    addLog('hapus','Hapus transaksi: '+inv.no);
-    showToast('🗑️ Transaksi dihapus!');
-  } catch(e) { DB.invoice.splice(i,1); renderInvoice(); showToast('🗑️ Transaksi dihapus (offline)'); }
-}
-
 async function simpanInvoice() {
   const mitra = document.getElementById('inv-mitra')?.value;
   const items = invItems.filter(Boolean);
-  if (!mitra) { showToast('Pilih mitra terlebih dahulu!','error'); return; }
-  if (items.length === 0) { showToast('Tambahkan minimal 1 item!','error'); return; }
-
-  // BUG 4 FIX: Validasi stok sebelum simpan
-  for (const item of items) {
-    if (!item.nama) continue;
-    const b = DB.barang.find(b => b.nama === item.nama);
-    if (!b) { showToast(`❌ Barang "${item.nama}" tidak ditemukan!`,'error'); return; }
-    if (b.stok < item.qty) {
-      showToast(`❌ Stok ${item.nama} tidak mencukupi! Sisa: ${b.stok} ${b.satuan}`, 'error'); return;
-    }
-  }
-
-  const subtotal   = items.reduce((s,i)=>s+i.total,0);
-  const diskon     = parseFloat(document.getElementById('inv-diskon')?.value)||0;
-  const afterD     = subtotal*(1-diskon/100);
-  const ppn        = afterD*0.11;
-  const total      = Math.round(afterD+ppn);
-  const metodeBayar = document.getElementById('inv-bayar')?.value || 'Tempo';
-  // Tunai / Transfer langsung Lunas, Tempo = Belum Lunas
-  const status     = (metodeBayar==='Tunai'||metodeBayar==='Transfer') ? 'Lunas' : 'Belum Lunas';
-
+  if (!mitra||items.length===0) { showToast('Pilih mitra dan tambah item!','error'); return; }
+  const subtotal = items.reduce((s,i)=>s+i.total,0);
+  const diskon   = parseFloat(document.getElementById('inv-diskon')?.value)||0;
+  const total    = Math.round(subtotal*(1-diskon/100)*1.11);
   invCounter++;
   const data = {
-    no          : document.getElementById('inv-no')?.value,
-    tgl         : document.getElementById('inv-tgl')?.value,
-    tempo       : metodeBayar==='Tempo' ? (document.getElementById('inv-tempo')?.value||'-') : '-',
-    metodeBayar,
-    mitra, total, status,
+    no       : document.getElementById('inv-no')?.value,
+    tgl      : document.getElementById('inv-tgl')?.value,
+    tempo    : document.getElementById('inv-tempo')?.value,
+    mitra, total, status:'Belum Lunas',
     items, diskon,
-    salesName   : currentUser?.name||'',
-    salesUid    : currentUser?.uid||'',
+    salesName: currentUser?.name||'',
+    salesUid : currentUser?.uid||'',
   };
   try {
     await window.FS.addDoc(window.FS.col('invoice'), data);
-    // Kurangi stok otomatis setelah transaksi tersimpan
-    for (const item of items) {
-      if (!item.nama) continue;
-      const b = DB.barang.find(b=>b.nama===item.nama);
-      if (b && b._id) {
-        const newStok   = Math.max(0, b.stok - item.qty);
-        const newKeluar = (b.keluar||0) + item.qty;
-        await window.FS.updateDoc(window.FS.docRef('barang',b._id),{stok:newStok,keluar:newKeluar}).catch(()=>{});
-        b.stok   = newStok;
-        b.keluar = newKeluar;
-      }
-    }
-    addLog('invoice','Buat '+data.no+' ('+metodeBayar+') — Rp '+total.toLocaleString('id-ID'));
-    showToast('✅ Transaksi tersimpan! Status: '+status);
-  } catch(e) {
-    // Offline: kurangi stok lokal
-    for (const item of items) {
-      if (!item.nama) continue;
-      const b = DB.barang.find(b=>b.nama===item.nama);
-      if (b) { b.stok=Math.max(0,b.stok-item.qty); b.keluar=(b.keluar||0)+item.qty; }
-    }
-    DB.invoice.unshift(data);
-    renderInvoice(); renderBarang(); renderStok();
-    showToast('✅ Transaksi dibuat (offline). Status: '+status);
-  }
+    addLog('invoice','Buat '+data.no+' — Rp '+total.toLocaleString('id-ID'));
+    showToast('✅ Invoice tersimpan ke cloud!');
+  } catch(e) { DB.invoice.unshift(data); renderInvoice(); showToast('✅ Invoice dibuat (offline)'); }
   closeModal('modal-invoice');
   invItems = [];
   document.getElementById('inv-items').innerHTML = '';
-  document.getElementById('inv-no').value = `TRX-${new Date().getFullYear()}-${invCounter}`;
+  document.getElementById('inv-no').value = `INV-${new Date().getFullYear()}-${invCounter}`;
   hitungTotal();
-  renderBarang(); renderStok(); renderStokKritis();
 }
 
 async function tandaiLunas(i) {
@@ -1718,21 +1276,10 @@ async function simpanPembelian() {
 // ───────────────────── CHAT ─────────────────────────────────────
 function toggleChat() {
   chatOpen = !chatOpen;
-  document.getElementById('chat-window').classList.toggle('open', chatOpen);
-  const fab = document.getElementById('chat-fab');
-  if (fab) fab.classList.toggle('chat-fab-active', chatOpen);
-  if (chatOpen) {
-    document.getElementById('chat-unread-badge').style.display = 'none';
-    document.getElementById('chat-input')?.focus();
-  }
+  document.getElementById('chat-window').classList.toggle('open',chatOpen);
+  if (chatOpen) { document.getElementById('chat-unread-badge').style.display='none'; document.getElementById('chat-input')?.focus(); }
 }
-function openChat() {
-  chatOpen = true;
-  document.getElementById('chat-window').classList.add('open');
-  document.getElementById('chat-unread-badge').style.display = 'none';
-  const fab = document.getElementById('chat-fab');
-  if (fab) fab.classList.add('chat-fab-active');
-}
+function openChat() { chatOpen=true; document.getElementById('chat-window').classList.add('open'); document.getElementById('chat-unread-badge').style.display='none'; }
 
 function switchChatTab(tab) {
   activeChatTab = tab;
@@ -1748,15 +1295,14 @@ function renderChatMessages() {
   if (!body) return;
   const messages = DB.chat.length ? DB.chat : chatMessages;
   const myUid = window.FA?.currentUser()?.uid;
-  const myName = currentUser?.name || '';
   body.innerHTML = messages.map(m => {
-    const isMine = m.uid === myUid || m.mine || m.sender === myName;
-    return `<div class="msg ${isMine?'mine':'other'}" style="display:flex;flex-direction:${isMine?'row-reverse':'row'};align-items:flex-end;gap:8px;margin-bottom:14px">
-      <div class="msg-avatar" style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:${isMine?'var(--primary)':'var(--accent2)'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff">${m.avatar||m.sender?.[0]||'?'}</div>
-      <div style="max-width:72%;display:flex;flex-direction:column;align-items:${isMine?'flex-end':'flex-start'}">
-        ${!isMine?`<div style="font-size:11px;color:var(--text-muted);margin-bottom:3px;font-weight:600;padding:0 4px">${m.sender}</div>`:''}
-        <div class="msg-bubble" style="background:${isMine?'var(--primary)':'rgba(255,255,255,0.08)'};color:${isMine?'#fff':'var(--text)'};border-radius:${isMine?'18px 18px 4px 18px':'18px 18px 18px 4px'};padding:10px 14px;font-size:13px;line-height:1.5;word-break:break-word">${m.text}</div>
-        <span class="msg-time" style="font-size:10px;color:var(--text-muted);margin-top:3px;padding:0 4px">${m.time||''}</span>
+    const isMine = m.uid === myUid || m.mine;
+    return `<div class="msg ${isMine?'mine':'other'}">
+      <div class="msg-avatar">${m.avatar||m.sender?.[0]||'?'}</div>
+      <div>
+        ${!isMine?`<div style="font-size:11px;color:var(--text-muted);margin-bottom:3px;font-weight:600">${m.sender}</div>`:''}
+        <div class="msg-bubble">${m.text}</div>
+        <span class="msg-time">${m.time||''}</span>
       </div>
     </div>`;
   }).join('');
@@ -2017,7 +1563,5 @@ function renderAll() {
   renderStokKritis(); buildMainChart(); fillDropdowns();
   updateRunningText();
   renderDashboardStats();
-  renderInvoiceStats();
-  updateKategoriDropdowns();
   if (currentUser) applyRoleRestrictions(currentUser.role);
 }

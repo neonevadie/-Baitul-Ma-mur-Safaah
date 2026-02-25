@@ -1,43 +1,34 @@
-<div align="center">
+# 🏪 BMS — Sistem Manajemen Bisnis
+### CV. Baitul Ma'mur Syafaah — Distributor Sembako Nasional
 
-# 🕌 BMS — Baitul Ma'mur Syafaah
-### Sistem Manajemen Bisnis Internal
+[![GitHub Pages](https://img.shields.io/badge/Live-GitHub%20Pages-brightgreen?style=flat-square&logo=github)](https://neonevadie.github.io/-Baitul-Ma-mur-Safaah/)
+[![Firebase](https://img.shields.io/badge/Database-Firebase%20Firestore-orange?style=flat-square&logo=firebase)](https://firebase.google.com/)
+[![Status](https://img.shields.io/badge/Status-Online-success?style=flat-square)]()
 
-**CV. Baitul Ma'mur Syafaah · 2026**
+---
 
-[![Status](https://img.shields.io/badge/status-aktif-brightgreen?style=flat-square)](https://neonevadie.github.io/-Baitul-Ma-mur-Safaah/)
-[![Firebase](https://img.shields.io/badge/backend-Firebase-orange?style=flat-square)](https://firebase.google.com/)
-[![Deploy](https://img.shields.io/badge/hosting-GitHub%20Pages-blue?style=flat-square)](https://pages.github.com/)
+## 📋 Tentang Sistem
 
-</div>
+**BMS** adalah aplikasi manajemen bisnis berbasis web untuk CV. Baitul Ma'mur Syafaah. Sistem ini membantu mengelola operasional distribusi sembako secara real-time melalui integrasi Firebase Firestore.
+
+🌐 **Live Demo:** https://neonevadie.github.io/-Baitul-Ma-mur-Safaah/
 
 ---
 
 ## ✨ Fitur Utama
 
-| Modul | Deskripsi |
-|---|---|
-| 📊 **Dashboard** | Ringkasan real-time — stok kritis, invoice jatuh tempo, running text produk |
-| 🛒 **Transaksi & Invoice** | Buat invoice, metode bayar Tunai/Transfer/Tempo, stok otomatis berkurang |
-| 📦 **Data Barang** | CRUD produk dengan foto, harga beli/jual, kategori, lokasi rak |
-| 📋 **Stock Opname** | Audit fisik vs sistem, simpan per-baris atau massal, generate laporan CSV |
-| 🤝 **Mitra Bisnis** | Kelola pelanggan & pemasok, tracking piutang |
-| 💰 **Keuangan** | Pengeluaran, pembelian, aset, laba rugi sederhana |
-| 📈 **Laporan & Analitik** | Grafik penjualan, margin, perputaran stok |
-| 📊 **Dashboard Sales** | Performa individu & estimasi bonus per sales |
-| 💬 **Live Chat** | Komunikasi real-time antar tim (Owner, Admin, Sales) |
-| 📋 **Log Aktivitas** | Rekam jejak lengkap semua tindakan tim (khusus Owner) |
-| ⚙️ **Pengaturan** | Profil perusahaan, kategori barang, manajemen akun, backup/restore |
+| Modul | Deskripsi | Owner | Admin | Sales |
+|-------|-----------|:-----:|:-----:|:-----:|
+| 📊 Dashboard | KPI real-time, grafik performa | ✅ | ✅ | ✅ |
+| 📦 Data Barang | CRUD produk & inventaris | ✅ | ✅ | 👁️ |
+| 🧾 Invoice | Buat & kelola invoice + PPN 11% | ✅ | ✅ | ✅ |
+| 🏭 Info Stok | Monitor stok masuk/keluar | ✅ | ✅ | 👁️ |
+| 🤝 Mitra Bisnis | Data pelanggan & pemasok | ✅ | ✅ | ✅ |
+| 💰 Keuangan | Laporan laba-rugi, pengeluaran | ✅ | ✅ | ❌ |
+| 📈 Laporan | Analitik & grafik performa | ✅ | ❌ | ❌ |
+| 💬 Live Chat | Chat internal antar tim | ✅ | ✅ | ✅ |
 
----
-
-## 👥 Hak Akses Pengguna
-
-```
-👑 Owner     → Akses penuh semua modul
-🛠️  Admin     → Transaksi, barang, mitra, keuangan, laporan, opname, pengaturan
-📊 Sales     → Dashboard, stok, transaksi, mitra, dashboard sales pribadi
-```
+> 👁️ = hanya lihat (read-only), tidak bisa edit/hapus
 
 ---
 
@@ -45,89 +36,116 @@
 
 ```
 bms/
-├── index.html                  ← Satu-satunya halaman HTML (SPA)
+│
+├── index.html              ← Halaman utama (entry point)
+│
 ├── assets/
 │   ├── css/
-│   │   └── style.css           ← Semua styling (dark/light mode)
+│   │   └── style.css       ← Semua styling (774 baris)
 │   ├── js/
-│   │   ├── app.js              ← Logic utama (nav, render, CRUD, chat)
-│   │   └── firebase.js         ← Konfigurasi & wrapper Firebase SDK
+│   │   ├── firebase.js     ← Konfigurasi & koneksi Firebase
+│   │   └── app.js          ← Logika utama aplikasi (1090 baris)
 │   └── img/
-│       └── logo.png            ← Logo BMS (opsional, ada fallback teks)
-├── .gitignore
-└── README.md
+│       └── logo.png        ← Logo perusahaan
+│
+├── .gitignore              ← File yang diabaikan Git
+└── README.md               ← Dokumentasi ini
 ```
 
 ---
 
-## 🚀 Cara Deploy & Update
+## 🚀 Cara Deploy ke GitHub Pages
 
-```bash
-# 1. Edit file sesuai kebutuhan
-# 2. Push ke GitHub
-git add .
-git commit -m "feat: deskripsi perubahan"
-git push
+1. **Push ke GitHub:**
+   ```bash
+   git add .
+   git commit -m "update: deskripsi perubahan"
+   git push origin main
+   ```
 
-# 3. Tunggu 1–2 menit → otomatis live di:
-# https://neonevadie.github.io/-Baitul-Ma-mur-Safaah/
-```
+2. **Aktifkan GitHub Pages:**
+   - Buka repo → **Settings** → **Pages**
+   - Source: `Deploy from a branch`
+   - Branch: `main` / `root`
+   - Klik **Save**
+
+3. Website live di: `https://[username].github.io/[repo-name]/`
 
 ---
 
-## 🔐 Keamanan Firebase
+## 🔥 Setup Firebase
 
-> **Penting:** Firebase config ada di frontend (`firebase.js`). Pastikan Firestore & Storage Rules sudah ketat.
+### Langkah 1 — Firestore Rules
+Buka [Firebase Console](https://console.firebase.google.com/) → Proyek **bms-syafaah** → **Firestore Database** → **Rules**, paste:
 
-### Firestore Rules (disarankan)
 ```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Koleksi test: bebas untuk testing
-    match /test/{doc} {
-      allow read, write: if true;
-    }
-    // Semua koleksi lain: wajib login
-    match /{collection}/{doc} {
-      allow read, write: if request.auth != null;
+    match /{document=**} {
+      allow read, write: if true;  // Development only
     }
   }
 }
 ```
 
-### Setup Firebase Auth
-1. Buka **Firebase Console → Authentication → Sign-in method**
-2. Aktifkan **Email/Password**
-3. Tambahkan user: **Authentication → Add User**
-   - Owner: `owner@bms-syafaah.id`
-   - Admin: `admin@bms-syafaah.id`
-   - Sales: sesuai kebutuhan
+> ⚠️ Untuk production, gunakan rules yang lebih ketat dengan autentikasi.
+
+### Langkah 2 — Ganti Config (jika perlu)
+Edit `assets/js/firebase.js` bagian `firebaseConfig`:
+```javascript
+const firebaseConfig = {
+  apiKey     : "YOUR_API_KEY",
+  authDomain : "YOUR_PROJECT.firebaseapp.com",
+  projectId  : "YOUR_PROJECT_ID",
+  // ...
+};
+```
+
+---
+
+## 👥 Akun Default
+
+| Role | Username | Password | Akses |
+|------|----------|----------|-------|
+| 👑 Owner | `owner` | `bms2024` | Full akses semua fitur |
+| 💼 Admin | `admin` | `bms2024` | Keuangan, stok, invoice |
+| 🤝 Sales | `sales` | `bms2024` | Invoice & info stok saja |
+
+> 🔒 **Penting:** Ganti password di `assets/js/app.js` bagian `const USERS` sebelum production!
 
 ---
 
 ## 🛠️ Teknologi
 
-- **Frontend:** HTML5, CSS3 (Dark/Light Mode), Vanilla JavaScript ES6+
-- **Backend:** Firebase Authentication + Firestore (realtime sync)
-- **Hosting:** GitHub Pages (auto-deploy on push)
-- **Icons:** Font Awesome 6
+- **Frontend:** HTML5, CSS3, Vanilla JavaScript (ES6+)
+- **Database:** Firebase Firestore (NoSQL, realtime)
+- **Hosting:** GitHub Pages
+- **UI Framework:** Custom CSS (no framework)
+- **Icons:** Font Awesome 6.4
+- **Fonts:** Plus Jakarta Sans, Syne (Google Fonts)
 
 ---
 
-## 🔭 Rencana Pengembangan
+## 📱 Fitur Teknis
 
-- [ ] Pisah halaman ke partial HTML / komponen (`/pages`, `/components`)
-- [ ] Gunakan `lit-html` atau templating engine ringan
-- [ ] Role-based Firestore rules lebih granular
-- [ ] Notifikasi push (Firebase Cloud Messaging)
-- [ ] Laporan PDF otomatis bulanan
+- ✅ **Realtime sync** — data update otomatis di semua tab/device
+- ✅ **Session persistent** — tidak logout saat refresh (localStorage)
+- ✅ **Role-based access** — tampilan & aksi sesuai role
+- ✅ **Offline fallback** — pakai data lokal jika Firebase tidak tersedia
+- ✅ **Export CSV** — barang, invoice, mitra, stok
+- ✅ **Responsive** — bisa dipakai di HP & tablet
+- ✅ **Print invoice** — format siap cetak
 
 ---
 
-<div align="center">
+## 📞 Informasi Perusahaan
 
-Dibuat oleh **[@gostcyber](https://github.com/gostcyber)** · 2026  
-_Untuk kebutuhan internal CV. Baitul Ma'mur Syafaah_
+**CV. Baitul Ma'mur Syafaah**  
+Distributor Sembako Nasional  
+Ruko Pertokoan Villa Bogor Indah 5, Bogor, Jawa Barat  
+📧 info@bms-syafaah.id
 
-</div>
+---
+
+*Dikembangkan untuk kebutuhan internal CV. BMS — 2025*

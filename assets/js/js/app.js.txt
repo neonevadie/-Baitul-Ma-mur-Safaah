@@ -1,0 +1,18 @@
+// app.js
+import { initTheme } from './theme.js';
+import { loadAppConfig } from './auth.js';
+import { loadAllFromFirestore } from './data.js';
+import { buildNav, navigateTo } from './nav.js';
+import { initSearch, updateDate, showToast } from './helpers.js';
+// import semua modul lain yang diperlukan
+
+document.addEventListener('DOMContentLoaded', async () => {
+  initTheme();
+  updateDate();
+  // loadAppConfig, initSearch, dll.
+  // kode inisialisasi dari DOMContentLoaded asli
+});
+
+window.addEventListener('load', () => {
+  // kode load asli
+});

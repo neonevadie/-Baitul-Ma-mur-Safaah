@@ -1,0 +1,11 @@
+// settings.js
+export function renderSettings() { ... }
+export function renderUsersList() { ... }
+export async function saveCompanyProfile() { ... }
+export async function tambahUserSales() { ... }
+export async function hapusUserSales(i) { ... }
+export function tambahKategori() { ... }
+export function hapusKategori(i) { ... }
+export async function clearCollection(colName, label) { ... }
+export async function backupData() { ... }
+export async function restoreData(event) { ... }

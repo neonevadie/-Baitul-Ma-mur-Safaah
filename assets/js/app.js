@@ -59,11 +59,7 @@ const DB = {
   barang: [], invoice: [], mitra: [],
   pengeluaran: [], pembelian: [],
   log: [], chat: [],
-  notifikasi: [
-    { id:1, pesan:'Stok Gula Pasir kritis — sisa 12 karung', waktu:'2 menit lalu', tipe:'danger', baca:false },
-    { id:2, pesan:'Invoice jatuh tempo menunggu konfirmasi', waktu:'1 jam lalu',   tipe:'warning', baca:false },
-    { id:3, pesan:'Data berhasil disinkronkan ke Firebase',  waktu:'5 menit lalu', tipe:'success', baca:true  },
-  ],
+  notifikasi: [], // Dimuat dari Firestore koleksi 'notifikasi'
 };
 
 let chatMessages = [];
@@ -430,20 +426,22 @@ async function loadAllFromFirestore() {
   const { FS } = window;
   updateFBStatus('loading');
   try {
-    const [sB, sI, sM, sP, sPm, sL] = await Promise.all([
+    const [sB, sI, sM, sP, sPm, sL, sN] = await Promise.all([
       FS.getDocs(FS.query(FS.col('barang'),       FS.orderBy('_ts','desc'))),
       FS.getDocs(FS.query(FS.col('invoice'),      FS.orderBy('_ts','desc'))),
       FS.getDocs(FS.query(FS.col('mitra'),        FS.orderBy('_ts','desc'))),
       FS.getDocs(FS.query(FS.col('pengeluaran'),  FS.orderBy('_ts','desc'))),
       FS.getDocs(FS.query(FS.col('pembelian'),    FS.orderBy('_ts','desc'))),
       FS.getDocs(FS.query(FS.col('log'),          FS.orderBy('_ts','desc'), FS.limit(100))),
+      FS.getDocs(FS.query(FS.col('notifikasi'),   FS.orderBy('_ts','desc'), FS.limit(50))),
     ]);
-    if (!sB.empty) DB.barang      = sB.docs.map(d  => ({ _id:d.id,...d.data() }));
-    if (!sI.empty) DB.invoice     = sI.docs.map(d  => ({ _id:d.id,...d.data() }));
-    if (!sM.empty) DB.mitra       = sM.docs.map(d  => ({ _id:d.id,...d.data() }));
-    if (!sP.empty) DB.pengeluaran = sP.docs.map(d  => ({ _id:d.id,...d.data() }));
-    if (!sPm.empty) DB.pembelian  = sPm.docs.map(d => ({ _id:d.id,...d.data() }));
-    if (!sL.empty) DB.log         = sL.docs.map(d  => ({ _id:d.id,...d.data() }));
+    if (!sB.empty)  DB.barang      = sB.docs.map(d  => ({ _id:d.id,...d.data() }));
+    if (!sI.empty)  DB.invoice     = sI.docs.map(d  => ({ _id:d.id,...d.data() }));
+    if (!sM.empty)  DB.mitra       = sM.docs.map(d  => ({ _id:d.id,...d.data() }));
+    if (!sP.empty)  DB.pengeluaran = sP.docs.map(d  => ({ _id:d.id,...d.data() }));
+    if (!sPm.empty) DB.pembelian   = sPm.docs.map(d => ({ _id:d.id,...d.data() }));
+    if (!sL.empty)  DB.log         = sL.docs.map(d  => ({ _id:d.id,...d.data() }));
+    if (!sN.empty)  DB.notifikasi  = sN.docs.map(d  => ({ _id:d.id,...d.data() }));
 
     setupRealtimeListeners();
     renderAll();
@@ -480,6 +478,9 @@ function setupRealtimeListeners() {
   });
   FS.onSnapshot(FS.query(FS.col('chat'),       FS.orderBy('_ts','asc'),  FS.limit(50)),  s => {
     if(!s.empty) { DB.chat=s.docs.map(d=>({_id:d.id,...d.data()})); renderChatMessages(); }
+  });
+  FS.onSnapshot(FS.query(FS.col('notifikasi'), FS.orderBy('_ts','desc'), FS.limit(50)), s => {
+    if(!s.empty) { DB.notifikasi=s.docs.map(d=>({_id:d.id,...d.data()})); renderNotifications(); }
   });
 }
 
@@ -833,37 +834,175 @@ function renderOpname() {
   if (!el) return;
   const date = new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
   document.getElementById('opname-date').textContent = 'Tanggal: ' + date;
-  el.innerHTML = DB.barang.map((b,i) => `
-    <tr>
+
+  if (DB.barang.length === 0) {
+    el.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--text-muted)">Belum ada data barang</td></tr>';
+    return;
+  }
+
+  // Update KPI cards
+  const safe = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+  safe('op-total',  DB.barang.length);
+  safe('op-aman',   DB.barang.filter(b=>b.stok>b.minStok).length);
+  safe('op-kritis', DB.barang.filter(b=>b.stok>0&&b.stok<=b.minStok).length);
+  safe('op-habis',  DB.barang.filter(b=>b.stok<=0).length);
+
+  el.innerHTML = DB.barang.map((b,i) => {
+    const statusBadge = b.stok <= 0
+      ? `<span class="badge badge-red" id="op-status-${i}">⛔ Habis</span>`
+      : b.stok <= b.minStok
+        ? `<span class="badge badge-amber" id="op-status-${i}">⚠️ Kritis</span>`
+        : `<span class="badge badge-green" id="op-status-${i}">✅ Aman</span>`;
+    return `<tr id="op-row-${i}">
       <td><code>${b.kode}</code></td>
       <td><strong>${b.nama}</strong></td>
       <td>${b.satuan}</td>
-      <td style="font-weight:700">${b.stok}</td>
-      <td><input type="number" id="op-act-${i}" value="${b.stok}" min="0" style="width:80px;border:1.5px solid var(--border);border-radius:8px;padding:6px;text-align:center" oninput="updateOpnameDiff(${i})"></td>
-      <td id="op-diff-${i}" style="font-weight:700">0</td>
-      <td><span class="badge ${b.stok<=b.minStok?'badge-red':'badge-green'}">${b.stok<=b.minStok?'⚠️ Kritis':'✅ Aman'}</span></td>
-      <td><input type="text" id="op-note-${i}" placeholder="Catatan..." style="width:120px;border:1.5px solid var(--border);border-radius:8px;padding:6px;font-size:12px"></td>
-    </tr>`).join('');
+      <td style="font-weight:700;text-align:center">${b.stok}</td>
+      <td style="text-align:center">
+        <input type="number" id="op-act-${i}" value="${b.stok}" min="0"
+          style="width:80px;border:1.5px solid var(--border);border-radius:8px;padding:6px;text-align:center;background:var(--surface)"
+          oninput="updateOpnameDiff(${i})">
+      </td>
+      <td id="op-diff-${i}" style="font-weight:700;text-align:center;color:var(--text-muted)">0</td>
+      <td id="op-status-wrap-${i}">${statusBadge}</td>
+      <td><input type="text" id="op-note-${i}" placeholder="Catatan..."
+          style="width:130px;border:1.5px solid var(--border);border-radius:8px;padding:6px;font-size:12px;background:var(--surface)"></td>
+      <td>
+        <button class="btn btn-sm btn-success" onclick="simpanOpnameRow(${i})" id="op-save-${i}"
+          style="padding:5px 10px;font-size:12px" title="Simpan ke sistem">
+          <i class="fas fa-save"></i>
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
 }
 
 function updateOpnameDiff(i) {
-  const sistem  = DB.barang[i].stok || 0;
-  const aktual  = parseInt(document.getElementById(`op-act-${i}`)?.value)||0;
+  const b       = DB.barang[i];
+  const sistem  = b.stok || 0;
+  const aktual  = parseInt(document.getElementById(`op-act-${i}`)?.value) ?? 0;
   const selisih = aktual - sistem;
-  const el = document.getElementById(`op-diff-${i}`);
-  if (!el) return;
-  el.textContent = (selisih > 0 ? '+' : '') + selisih;
-  el.style.color = selisih < 0 ? 'var(--danger)' : selisih > 0 ? 'var(--accent2)' : 'var(--text-muted)';
+
+  // Update selisih
+  const diffEl = document.getElementById(`op-diff-${i}`);
+  if (diffEl) {
+    diffEl.textContent = (selisih > 0 ? '+' : '') + selisih;
+    diffEl.style.color = selisih < 0 ? 'var(--danger)' : selisih > 0 ? 'var(--accent2)' : 'var(--text-muted)';
+  }
+
+  // Update STATUS secara otomatis berdasarkan nilai aktual
+  const statusWrap = document.getElementById(`op-status-wrap-${i}`);
+  if (statusWrap) {
+    const minStok = b.minStok || 20;
+    if (aktual <= 0) {
+      statusWrap.innerHTML = `<span class="badge badge-red" id="op-status-${i}">⛔ Habis</span>`;
+    } else if (aktual <= minStok) {
+      statusWrap.innerHTML = `<span class="badge badge-amber" id="op-status-${i}">⚠️ Kritis</span>`;
+    } else {
+      statusWrap.innerHTML = `<span class="badge badge-green" id="op-status-${i}">✅ Aman</span>`;
+    }
+  }
+
+  // Highlight baris jika ada perubahan
+  const row = document.getElementById(`op-row-${i}`);
+  if (row) row.style.background = selisih !== 0 ? 'rgba(245,158,11,0.04)' : '';
+  const saveBtn = document.getElementById(`op-save-${i}`);
+  if (saveBtn) {
+    saveBtn.style.opacity = selisih !== 0 ? '1' : '0.45';
+    saveBtn.title = selisih !== 0 ? `Simpan stok aktual: ${aktual}` : 'Tidak ada perubahan';
+  }
+}
+
+async function simpanOpnameRow(i) {
+  const b      = DB.barang[i];
+  if (!b) return;
+  const aktual = parseInt(document.getElementById(`op-act-${i}`)?.value) || 0;
+  const note   = document.getElementById(`op-note-${i}`)?.value || '';
+  const selisih = aktual - b.stok;
+
+  if (!confirm(`Simpan stok aktual "${b.nama}"?\nStok sistem: ${b.stok} → Aktual: ${aktual} (${selisih >= 0 ? '+' : ''}${selisih})\n\n⚠️ Stok barang akan diupdate ke sistem.`)) return;
+
+  const btn = document.getElementById(`op-save-${i}`);
+  if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true; }
+
+  try {
+    // 1. Update stok barang di Firestore
+    if (b._id) {
+      await window.FS.updateDoc(window.FS.docRef('barang', b._id), {
+        stok: aktual,
+        keluar: (b.keluar || 0) + Math.max(0, b.stok - aktual),
+        masuk : (b.masuk  || 0) + Math.max(0, aktual - b.stok),
+      });
+    } else {
+      b.stok = aktual;
+      renderBarang(); renderStok();
+    }
+    // 2. Simpan record opname ke Firestore
+    await window.FS.addDoc(window.FS.col('opname'), {
+      tgl      : new Date().toISOString().slice(0,10),
+      kode     : b.kode, nama: b.nama, satuan: b.satuan,
+      stokSistem: b.stok, stokAktual: aktual, selisih,
+      catatan  : note,
+      user     : currentUser?.name || '-',
+    });
+
+    addLog('stok', `Opname ${b.nama}: sistem ${b.stok} → aktual ${aktual} (${selisih >= 0 ? '+' : ''}${selisih})`);
+    showToast(`✅ Stok ${b.nama} diupdate ke ${aktual}!`);
+
+    // Update lokal langsung agar status langsung berubah
+    b.stok = aktual;
+    if (btn) { btn.innerHTML = '<i class="fas fa-check"></i>'; btn.style.background = 'var(--accent2)'; }
+    setTimeout(() => {
+      renderOpname(); // Re-render tabel setelah simpan
+    }, 800);
+  } catch(e) {
+    showToast('❌ Gagal simpan: ' + e.message, 'error');
+    if (btn) { btn.innerHTML = '<i class="fas fa-save"></i>'; btn.disabled = false; }
+  }
+}
+
+async function simpanSemuaOpname() {
+  const changed = DB.barang.filter((b,i) => {
+    const aktual = parseInt(document.getElementById(`op-act-${i}`)?.value);
+    return !isNaN(aktual) && aktual !== b.stok;
+  });
+  if (changed.length === 0) { showToast('Tidak ada perubahan untuk disimpan.', 'info'); return; }
+  if (!confirm(`Simpan ${changed.length} perubahan stok ke sistem sekaligus?`)) return;
+
+  showToast('⏳ Menyimpan semua perubahan...', 'info');
+  let berhasil = 0;
+  for (let i = 0; i < DB.barang.length; i++) {
+    const b      = DB.barang[i];
+    const aktual = parseInt(document.getElementById(`op-act-${i}`)?.value);
+    if (isNaN(aktual) || aktual === b.stok) continue;
+    try {
+      if (b._id) await window.FS.updateDoc(window.FS.docRef('barang', b._id), { stok: aktual });
+      await window.FS.addDoc(window.FS.col('opname'), {
+        tgl: new Date().toISOString().slice(0,10),
+        kode:b.kode, nama:b.nama, satuan:b.satuan,
+        stokSistem:b.stok, stokAktual:aktual, selisih:aktual-b.stok,
+        catatan: document.getElementById(`op-note-${i}`)?.value||'',
+        user: currentUser?.name||'-',
+      });
+      b.stok = aktual;
+      berhasil++;
+    } catch(e) { console.warn('opname simpan error:', e); }
+  }
+  addLog('stok', `Opname massal: ${berhasil} barang diupdate`);
+  showToast(`✅ ${berhasil} stok berhasil disimpan!`);
+  setTimeout(() => renderOpname(), 600);
 }
 
 async function generateOpname() {
   const rows = DB.barang.map((b,i) => {
-    const aktual = parseInt(document.getElementById(`op-act-${i}`)?.value)||b.stok;
-    const note   = document.getElementById(`op-note-${i}`)?.value||'';
-    return `${b.kode},${b.nama},${b.satuan},${b.stok},${aktual},${aktual-b.stok},"${note}"`;
+    const aktual = parseInt(document.getElementById(`op-act-${i}`)?.value) ?? b.stok;
+    const note   = document.getElementById(`op-note-${i}`)?.value || '';
+    const selisih = aktual - b.stok;
+    const status  = aktual <= 0 ? 'Habis' : aktual <= b.minStok ? 'Kritis' : 'Aman';
+    return [b.kode, `"${b.nama}"`, b.satuan, b.stok, aktual, selisih, status, `"${note}"`].join(',');
   });
-  const csv = ['Kode,Nama,Satuan,Stok Sistem,Stok Aktual,Selisih,Catatan', ...rows].join('\n');
-  const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const csv = ['Kode,Nama,Satuan,Stok Sistem,Stok Aktual,Selisih,Status,Catatan', ...rows].join('\n');
+  const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}); // BOM untuk Excel
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href = url; a.download = `StockOpname_BMS_${new Date().toISOString().slice(0,10)}.csv`;
@@ -1112,24 +1251,32 @@ async function restoreData(event) {
 }
 
 // ───────────────────── NOTIFICATIONS ────────────────────────────
-function checkStokKritisNotif() {
-  // Tambah notif stok kritis SEBELUM render — pakai Set untuk cegah duplikat
-  DB.barang.filter(b => b.stok <= b.minStok).forEach(b => {
+async function checkStokKritisNotif() {
+  // Cegah duplikat pakai key unik, simpan ke Firestore
+  for (const b of DB.barang.filter(bb => bb.stok <= bb.minStok)) {
     const key = 'stok-kritis-' + b.kode;
     const exists = DB.notifikasi.some(n => n.key === key && !n.baca);
     if (!exists) {
-      DB.notifikasi.unshift({
-        id: Date.now() + Math.random(), key,
-        pesan: `⚠️ Stok ${b.nama} kritis — sisa ${b.stok} ${b.satuan}`,
-        waktu: 'Baru saja', tipe: 'danger', baca: false
-      });
+      const notif = {
+        key,
+        pesan : `⚠️ Stok ${b.nama} kritis — sisa ${b.stok} ${b.satuan}`,
+        waktu : 'Baru saja',
+        tipe  : 'danger',
+        baca  : false,
+      };
+      try {
+        await window.FS.addDoc(window.FS.col('notifikasi'), notif);
+        // Realtime listener akan update DB.notifikasi otomatis
+      } catch(e) {
+        // Offline fallback — tambah lokal saja
+        DB.notifikasi.unshift({ ...notif, id: Date.now() + Math.random() });
+      }
     }
-  });
+  }
 }
 
 function renderNotifications() {
-  // Generate notif stok kritis dulu sebelum render
-  checkStokKritisNotif();
+  // checkStokKritisNotif() dipanggil async terpisah dari renderAll()
 
   const list = document.getElementById('notif-list');
   if (!list) return;
@@ -1166,16 +1313,33 @@ function renderNotifications() {
       </div>`).join('');
 }
 
-function bacaNotif(i) {
-  if (DB.notifikasi[i]) {
-    DB.notifikasi[i].baca = true;
-    renderNotifications(); // re-render langsung — index sudah benar
+async function bacaNotif(i) {
+  const n = DB.notifikasi[i];
+  if (!n) return;
+  n.baca = true;
+  renderNotifications(); // Update UI segera
+  // Sinkronkan ke Firestore
+  if (n._id) {
+    try { await window.FS.updateDoc(window.FS.docRef('notifikasi', n._id), { baca: true }); }
+    catch(e) { console.warn('notif update offline:', e); }
   }
 }
-function markAllRead() {
+
+async function markAllRead() {
+  // Update lokal dulu (langsung terasa)
   DB.notifikasi.forEach(n => n.baca = true);
   renderNotifications();
   showToast('✅ Semua notifikasi ditandai dibaca');
+  // Simpan semua ke Firestore secara batch
+  try {
+    const batch = window.FS.batch();
+    DB.notifikasi.forEach(n => {
+      if (n._id) batch.update(window.FS.docRef('notifikasi', n._id), { baca: true });
+    });
+    await batch.commit();
+  } catch(e) {
+    console.warn('markAllRead offline:', e);
+  }
 }
 function toggleNotif() {
   const panel = document.getElementById('notif-panel');
@@ -1975,4 +2139,6 @@ function renderAll() {
   renderInvoiceStats();
   updateKategoriDropdowns();
   if (currentUser) applyRoleRestrictions(currentUser.role);
+  // Cek & push notif stok kritis ke Firestore (async, tidak blocking)
+  checkStokKritisNotif().then(() => renderNotifications()).catch(() => renderNotifications());
 }

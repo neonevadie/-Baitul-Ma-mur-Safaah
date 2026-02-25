@@ -1,7 +1,6 @@
 # 🏪 BMS — Sistem Manajemen Bisnis
 ### CV. Baitul Ma'mur Syafaah — Distributor Sembako Nasional
 
-[![GitHub Pages](https://img.shields.io/badge/Live-GitHub%20Pages-brightgreen?style=flat-square&logo=github)](https://neonevadie.github.io/-Baitul-Ma-mur-Safaah/)
 [![Firebase](https://img.shields.io/badge/Database-Firebase%20Firestore-orange?style=flat-square&logo=firebase)](https://firebase.google.com/)
 [![Status](https://img.shields.io/badge/Status-Online-success?style=flat-square)]()
 
@@ -9,9 +8,9 @@
 
 ## 📋 Tentang Sistem
 
-**BMS** adalah aplikasi manajemen bisnis berbasis web untuk CV. Baitul Ma'mur Syafaah. Sistem ini membantu mengelola operasional distribusi sembako secara real-time melalui integrasi Firebase Firestore.
+**BMS** adalah aplikasi manajemen bisnis berbasis web untuk CV. Baitul Ma'mur Syafaah, membantu mengelola operasional distribusi sembako secara real-time melalui Firebase Firestore.
 
-🌐 **Live Demo:** https://neonevadie.github.io/-Baitul-Ma-mur-Safaah/
+> ⚠️ **Repositori ini bersifat privat — tidak untuk disebarkan ke publik.**
 
 ---
 
@@ -20,15 +19,18 @@
 | Modul | Deskripsi | Owner | Admin | Sales |
 |-------|-----------|:-----:|:-----:|:-----:|
 | 📊 Dashboard | KPI real-time, grafik performa | ✅ | ✅ | ✅ |
-| 📦 Data Barang | CRUD produk & inventaris | ✅ | ✅ | 👁️ |
-| 🧾 Invoice | Buat & kelola invoice + PPN 11% | ✅ | ✅ | ✅ |
+| 📦 Data Barang | CRUD produk & inventaris + edit | ✅ | ✅ | 👁️ |
+| 🧾 Transaksi | Buat transaksi + metode bayar + PPN 11% | ✅ | ✅ | ✅ |
 | 🏭 Info Stok | Monitor stok masuk/keluar | ✅ | ✅ | 👁️ |
 | 🤝 Mitra Bisnis | Data pelanggan & pemasok | ✅ | ✅ | ✅ |
 | 💰 Keuangan | Laporan laba-rugi, pengeluaran | ✅ | ✅ | ❌ |
-| 📈 Laporan | Analitik & grafik performa | ✅ | ❌ | ❌ |
+| 📈 Laporan | Analitik & grafik performa | ✅ | ✅ | ❌ |
+| 📋 Stock Opname | Audit stok fisik, simpan ke cloud | ✅ | ✅ | ❌ |
 | 💬 Live Chat | Chat internal antar tim | ✅ | ✅ | ✅ |
+| ⚙️ Pengaturan | Akun, kategori, backup | ✅ | ✅ | ❌ |
+| 📋 Log Aktivitas | Rekam jejak semua aktivitas | ✅ | ❌ | ❌ |
 
-> 👁️ = hanya lihat (read-only), tidak bisa edit/hapus
+> 👁️ = hanya lihat (read-only)
 
 ---
 
@@ -36,116 +38,53 @@
 
 ```
 bms/
-│
-├── index.html              ← Halaman utama (entry point)
-│
+├── index.html              ← Halaman utama
 ├── assets/
-│   ├── css/
-│   │   └── style.css       ← Semua styling (774 baris)
+│   ├── css/style.css       ← Semua styling
 │   ├── js/
-│   │   ├── firebase.js     ← Konfigurasi & koneksi Firebase
-│   │   └── app.js          ← Logika utama aplikasi (1090 baris)
-│   └── img/
-│       └── logo.png        ← Logo perusahaan
-│
-├── .gitignore              ← File yang diabaikan Git
-└── README.md               ← Dokumentasi ini
+│   │   ├── firebase.js     ← Konfigurasi Firebase (⚠️ tidak untuk diedit sembarangan)
+│   │   └── app.js          ← Logika utama aplikasi
+│   └── img/logo.png        ← Logo perusahaan
+├── .gitignore
+└── README.md
 ```
-
----
-
-## 🚀 Cara Deploy ke GitHub Pages
-
-1. **Push ke GitHub:**
-   ```bash
-   git add .
-   git commit -m "update: deskripsi perubahan"
-   git push origin main
-   ```
-
-2. **Aktifkan GitHub Pages:**
-   - Buka repo → **Settings** → **Pages**
-   - Source: `Deploy from a branch`
-   - Branch: `main` / `root`
-   - Klik **Save**
-
-3. Website live di: `https://[username].github.io/[repo-name]/`
-
----
-
-## 🔥 Setup Firebase
-
-### Langkah 1 — Firestore Rules
-Buka [Firebase Console](https://console.firebase.google.com/) → Proyek **bms-syafaah** → **Firestore Database** → **Rules**, paste:
-
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;  // Development only
-    }
-  }
-}
-```
-
-> ⚠️ Untuk production, gunakan rules yang lebih ketat dengan autentikasi.
-
-### Langkah 2 — Ganti Config (jika perlu)
-Edit `assets/js/firebase.js` bagian `firebaseConfig`:
-```javascript
-const firebaseConfig = {
-  apiKey     : "YOUR_API_KEY",
-  authDomain : "YOUR_PROJECT.firebaseapp.com",
-  projectId  : "YOUR_PROJECT_ID",
-  // ...
-};
-```
-
----
-
-## 👥 Akun Default
-
-| Role | Username | Password | Akses |
-|------|----------|----------|-------|
-| 👑 Owner | `owner` | `bms2024` | Full akses semua fitur |
-| 💼 Admin | `admin` | `bms2024` | Keuangan, stok, invoice |
-| 🤝 Sales | `sales` | `bms2024` | Invoice & info stok saja |
-
-> 🔒 **Penting:** Ganti password di `assets/js/app.js` bagian `const USERS` sebelum production!
 
 ---
 
 ## 🛠️ Teknologi
 
 - **Frontend:** HTML5, CSS3, Vanilla JavaScript (ES6+)
-- **Database:** Firebase Firestore (NoSQL, realtime)
-- **Hosting:** GitHub Pages
-- **UI Framework:** Custom CSS (no framework)
-- **Icons:** Font Awesome 6.4
-- **Fonts:** Plus Jakarta Sans, Syne (Google Fonts)
+- **Database:** Firebase Firestore (realtime NoSQL)
+- **Auth:** Firebase Authentication (Email/Password)
+- **Icons:** Font Awesome 6.4 | **Fonts:** Plus Jakarta Sans, Syne
 
 ---
 
 ## 📱 Fitur Teknis
 
-- ✅ **Realtime sync** — data update otomatis di semua tab/device
-- ✅ **Session persistent** — tidak logout saat refresh (localStorage)
-- ✅ **Role-based access** — tampilan & aksi sesuai role
-- ✅ **Offline fallback** — pakai data lokal jika Firebase tidak tersedia
-- ✅ **Export CSV** — barang, invoice, mitra, stok
-- ✅ **Responsive** — bisa dipakai di HP & tablet
-- ✅ **Print invoice** — format siap cetak
+- ✅ Realtime sync — data sinkron otomatis semua perangkat
+- ✅ Notifikasi persisten — status baca tersimpan ke Firebase
+- ✅ Stock Opname — audit fisik, simpan & update stok ke cloud
+- ✅ Role-based access — akses sesuai peran pengguna
+- ✅ Offline fallback — data lokal aktif jika Firebase tidak tersambung
+- ✅ Export CSV — barang, invoice, mitra, stok, opname
+- ✅ Mobile-friendly — sidebar accordion, responsive layout
+
+---
+
+## 🔒 Keamanan
+
+- Kredensial login **tidak disimpan** di kode maupun repositori ini
+- Manajemen akun melalui **Pengaturan → Manajemen Pengguna**
+- Gunakan **password kuat & unik** untuk setiap akun
+- Hubungi administrator untuk reset akses
 
 ---
 
 ## 📞 Informasi Perusahaan
 
-**CV. Baitul Ma'mur Syafaah**  
-Distributor Sembako Nasional  
-Ruko Pertokoan Villa Bogor Indah 5, Bogor, Jawa Barat  
-📧 info@bms-syafaah.id
+**CV. Baitul Ma'mur Syafaah** · Distributor Sembako Nasional  
+Ruko Pertokoan Villa Bogor Indah 5, Bogor, Jawa Barat
 
 ---
-
-*Dikembangkan untuk kebutuhan internal CV. BMS — 2025*
+*Sistem internal CV. BMS — 2026*

@@ -482,19 +482,53 @@
             <div class="section-title">📋 Stock Opname</div>
             <div class="section-sub" id="opname-date">Audit stok fisik vs sistem</div>
           </div>
-          <div style="display:flex;gap:10px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
             <button class="btn btn-outline" onclick="renderOpname()"><i class="fas fa-rotate"></i> Refresh</button>
-            <button class="btn btn-success" onclick="generateOpname()"><i class="fas fa-file-csv"></i> Generate Laporan CSV</button>
+            <button class="btn btn-primary" onclick="simpanSemuaOpname()"><i class="fas fa-cloud-upload-alt"></i> Simpan Semua</button>
+            <button class="btn btn-success" onclick="generateOpname()"><i class="fas fa-file-csv"></i> Export CSV</button>
           </div>
         </div>
+
+        <!-- Info banner -->
         <div class="alert alert-info" style="margin-bottom:16px">
           <i class="fas fa-info-circle"></i>
-          Isi kolom <strong>Stok Aktual</strong> sesuai hitungan fisik di gudang. Selisih akan otomatis terhitung.
+          Isi kolom <strong>Stok Aktual</strong> sesuai hitungan fisik. Status & selisih otomatis terhitung.
+          Klik <strong>💾</strong> per baris atau <strong>Simpan Semua</strong> untuk update stok ke sistem.
         </div>
+
+        <!-- Ringkasan opname -->
+        <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+          <div class="kpi-mini" style="flex:1;min-width:120px">
+            <h4>Total Produk</h4>
+            <div class="amount" id="op-total" style="color:var(--primary-light)">0</div>
+          </div>
+          <div class="kpi-mini" style="flex:1;min-width:120px">
+            <h4>✅ Aman</h4>
+            <div class="amount" id="op-aman" style="color:var(--accent2)">0</div>
+          </div>
+          <div class="kpi-mini" style="flex:1;min-width:120px">
+            <h4>⚠️ Kritis</h4>
+            <div class="amount" id="op-kritis" style="color:var(--accent)">0</div>
+          </div>
+          <div class="kpi-mini" style="flex:1;min-width:120px">
+            <h4>⛔ Habis</h4>
+            <div class="amount" id="op-habis" style="color:var(--danger)">0</div>
+          </div>
+        </div>
+
         <div class="card">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Kode</th><th>Nama Barang</th><th>Satuan</th><th>Stok Sistem</th><th>Stok Aktual</th><th>Selisih</th><th>Status</th><th>Catatan</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>Kode</th><th>Nama Barang</th><th>Satuan</th>
+                  <th style="text-align:center">Stok Sistem</th>
+                  <th style="text-align:center">Stok Aktual</th>
+                  <th style="text-align:center">Selisih</th>
+                  <th>Status</th><th>Catatan</th>
+                  <th style="text-align:center">Simpan</th>
+                </tr>
+              </thead>
               <tbody id="opname-table-body"></tbody>
             </table>
           </div>

@@ -7,18 +7,43 @@
 
 // ───────────────────── MENU CONFIG ─────────────────────────────
 const MENU_CONFIG = [
-  { id:'dashboard',  label:'Dashboard',          icon:'fa-gauge',         sub:'Ringkasan bisnis hari ini' },
-  { id:'barang',     label:'Data Barang',         icon:'fa-box-open',      sub:'Kelola produk & inventaris' },
-  { id:'invoice',    label:'Transaksi',           icon:'fa-receipt',       sub:'Daftar transaksi penjualan' },
-  { id:'stok',       label:'Info Stok',           icon:'fa-warehouse',     sub:'Informasi stok barang' },
-  { id:'mitra',      label:'Mitra Bisnis',        icon:'fa-handshake',     sub:'Pelanggan & pemasok' },
-  { id:'keuangan',   label:'Keuangan',            icon:'fa-chart-line',    sub:'Laporan keuangan & aset' },
-  { id:'laporan',    label:'Laporan & Analitik',  icon:'fa-chart-bar',     sub:'Analisis performa bisnis' },
-  { id:'sales_dash', label:'Dashboard Sales',     icon:'fa-user-chart',    sub:'Performa & bonus penjualan' },
+  { id:'dashboard',  label:'Dashboard',          icon:'fa-gauge',          sub:'Ringkasan bisnis hari ini' },
+  { id:'invoice',    label:'Transaksi',           icon:'fa-receipt',        sub:'Daftar transaksi penjualan' },
+  { id:'barang',     label:'Data Barang',         icon:'fa-box-open',       sub:'Kelola produk & inventaris' },
+  { id:'stok',       label:'Info Stok',           icon:'fa-warehouse',      sub:'Informasi stok barang' },
+  { id:'mitra',      label:'Mitra Bisnis',        icon:'fa-handshake',      sub:'Pelanggan & pemasok' },
+  { id:'keuangan',   label:'Keuangan',            icon:'fa-chart-line',     sub:'Laporan keuangan & aset' },
+  { id:'laporan',    label:'Laporan & Analitik',  icon:'fa-chart-bar',      sub:'Analisis performa bisnis' },
+  { id:'sales_dash', label:'Dashboard Sales',     icon:'fa-user-chart',     sub:'Performa & bonus penjualan' },
   { id:'opname',     label:'Stock Opname',        icon:'fa-clipboard-check',sub:'Audit & generate laporan stok' },
-  { id:'settings',   label:'Pengaturan',          icon:'fa-cog',           sub:'Kelola pengguna & data' },
+  { id:'settings',   label:'Pengaturan',          icon:'fa-cog',            sub:'Kelola pengguna & data' },
+  { id:'log',        label:'Log Aktivitas',       icon:'fa-list-check',     sub:'Rekam jejak aktivitas tim' },
   { id:'tutorial',   label:'Panduan',             icon:'fa-circle-question',sub:'Cara pakai sistem' },
 ];
+
+// Grup menu: setiap grup bisa expand/collapse
+const MENU_GROUPS = [
+  { id:'g-dashboard', label:'Dashboard',     icon:'fa-gauge',           single:'dashboard' },
+  { id:'g-transaksi', label:'Transaksi',     icon:'fa-receipt',         single:'invoice'   },
+  { id:'g-data',      label:'Data Bisnis',   icon:'fa-boxes-stacked',   children:[
+      { id:'barang',  label:'Data Barang',   icon:'fa-box-open'   },
+      { id:'mitra',   label:'Mitra Bisnis',  icon:'fa-handshake'  },
+      { id:'stok',    label:'Info Stok',     icon:'fa-warehouse'  },
+  ]},
+  { id:'g-keu',       label:'Keuangan',      icon:'fa-chart-line',      children:[
+      { id:'keuangan',   label:'Keuangan',           icon:'fa-wallet'     },
+      { id:'laporan',    label:'Laporan & Analitik',  icon:'fa-chart-bar'  },
+      { id:'sales_dash', label:'Dashboard Sales',     icon:'fa-user-chart' },
+  ]},
+  { id:'g-stok',      label:'Stock Opname', icon:'fa-clipboard-check',  single:'opname'    },
+  { id:'g-setting',   label:'Pengaturan',   icon:'fa-cog',              children:[
+      { id:'settings', label:'Pengaturan',    icon:'fa-cog'        },
+      { id:'log',      label:'Log Aktivitas', icon:'fa-list-check' },
+  ]},
+  { id:'g-tutorial',  label:'Panduan',      icon:'fa-circle-question',  single:'tutorial'  },
+];
+
+let openGroups = new Set(['g-data']);
 
 // ───────────────────── STATE ────────────────────────────────────
 let currentUser  = null;
@@ -214,10 +239,10 @@ function buildProfileFromEmail(email, uid) {
 
   if (email === roleEmails.owner || email.startsWith('owner@')) {
     role='owner'; name='Owner BMS'; avatar='O'; label='Pemilik / Administrator';
-    menus=['dashboard','barang','invoice','stok','mitra','keuangan','laporan','opname','settings','tutorial'];
+    menus=['dashboard','barang','invoice','stok','mitra','keuangan','laporan','sales_dash','opname','settings','log','tutorial'];
   } else if (email === roleEmails.admin || email.startsWith('admin@')) {
     role='admin'; name='Admin Keuangan'; avatar='R'; label='Admin Keuangan';
-    menus=['dashboard','barang','invoice','stok','mitra','keuangan','opname','settings'];
+    menus=['dashboard','barang','invoice','stok','mitra','keuangan','laporan','opname','settings'];
   } else {
     const su = (cfg.salesUsers || []).find(s => s.email === email);
     if (su) { name=su.name; avatar=su.avatar||name[0]; }
@@ -250,9 +275,11 @@ function applyRoleRestrictions(role) {
   if (el('btn-tambah-barang')) el('btn-tambah-barang').style.display = isSales ? 'none' : '';
   document.querySelectorAll('#page-stok .btn-success, #page-stok .btn-danger')
     .forEach(b => b.style.display = isSales ? 'none' : '');
-  // Log Aktivitas hanya owner
+  // Log Aktivitas hanya owner — nav-log ada di dalam group g-setting
   const logNav = document.getElementById('nav-log');
   if (logNav) logNav.style.display = isOwner ? '' : 'none';
+  // Kalau bukan owner, grup pengaturan hanya tampilkan settings saja
+  // (log tersembunyi secara nav-item, tapi group tetap ada untuk settings)
 }
 
 // ───────────────────── ONLINE STATUS ────────────────────────────
@@ -286,21 +313,77 @@ function updateOnlineCount() {
 function buildNav(allowed) {
   const nav = document.getElementById('sidebar-nav');
   nav.innerHTML = '<div class="nav-label">MENU UTAMA</div>';
-  MENU_CONFIG.filter(m => allowed.includes(m.id)).forEach(m => {
-    const el = document.createElement('div');
-    el.className = 'nav-item';
-    el.id = 'nav-' + m.id;
-    el.onclick = () => { navigateTo(m.id); if(window.innerWidth<=768) toggleSidebar(); };
-    el.innerHTML = `<i class="fas ${m.icon}"></i> <span>${m.label}</span>`;
-    nav.appendChild(el);
+
+  MENU_GROUPS.forEach(group => {
+    // Filter: apakah grup ini ada itemnya yang diizinkan?
+    const allowedChildren = group.children
+      ? group.children.filter(c => allowed.includes(c.id))
+      : (allowed.includes(group.single) ? [group] : []);
+    if (allowedChildren.length === 0) return;
+
+    if (group.single) {
+      // Item tunggal — langsung nav-item biasa
+      const el = document.createElement('div');
+      el.className = 'nav-item';
+      el.id = 'nav-' + group.single;
+      el.onclick = () => { navigateTo(group.single); if(window.innerWidth<=768) closeSidebar(); };
+      el.innerHTML = `<i class="fas ${group.icon}"></i><span>${group.label}</span>`;
+      nav.appendChild(el);
+    } else {
+      // Grup dengan sub-menu
+      const isOpen = openGroups.has(group.id);
+      const grpEl = document.createElement('div');
+      grpEl.className = 'nav-group' + (isOpen ? ' open' : '');
+      grpEl.id = 'navgrp-' + group.id;
+
+      const hdr = document.createElement('div');
+      hdr.className = 'nav-group-header';
+      hdr.onclick = () => toggleNavGroup(group.id);
+      hdr.innerHTML = `<i class="fas ${group.icon}"></i><span>${group.label}</span><i class="fas fa-chevron-right nav-chevron"></i>`;
+      grpEl.appendChild(hdr);
+
+      const body = document.createElement('div');
+      body.className = 'nav-group-body';
+      allowedChildren.forEach(child => {
+        const ci = document.createElement('div');
+        ci.className = 'nav-item nav-sub-item';
+        ci.id = 'nav-' + child.id;
+        ci.onclick = () => { navigateTo(child.id); if(window.innerWidth<=768) closeSidebar(); };
+        ci.innerHTML = `<i class="fas ${child.icon}"></i><span>${child.label}</span>`;
+        body.appendChild(ci);
+      });
+      grpEl.appendChild(body);
+      nav.appendChild(grpEl);
+    }
   });
+}
+
+function toggleNavGroup(groupId) {
+  const el = document.getElementById('navgrp-' + groupId);
+  if (!el) return;
+  const isOpen = el.classList.contains('open');
+  if (isOpen) { el.classList.remove('open'); openGroups.delete(groupId); }
+  else { el.classList.add('open'); openGroups.add(groupId); }
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('sidebar-overlay').classList.remove('show');
 }
 
 function navigateTo(id) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   const navEl = document.getElementById('nav-' + id);
-  if (navEl) navEl.classList.add('active');
+  if (navEl) {
+    navEl.classList.add('active');
+    // Auto-open parent group if it's a sub-item
+    const grp = navEl.closest('.nav-group');
+    if (grp && !grp.classList.contains('open')) {
+      grp.classList.add('open');
+      openGroups.add(grp.id.replace('navgrp-',''));
+    }
+  }
   const pageEl = document.getElementById('page-' + id);
   if (pageEl) pageEl.classList.add('active');
   const cfg = MENU_CONFIG.find(m => m.id === id);
@@ -313,6 +396,7 @@ function navigateTo(id) {
   if (id === 'settings')   renderSettings();
   if (id === 'opname')     renderOpname();
   if (id === 'keuangan')   renderAssets();
+  if (id === 'log')        renderLog();
 }
 
 // ───────────────────── INIT ─────────────────────────────────────
@@ -1028,34 +1112,86 @@ async function restoreData(event) {
 }
 
 // ───────────────────── NOTIFICATIONS ────────────────────────────
-function renderNotifications() {
-  const list  = document.getElementById('notif-list');
-  if (!list) return;
-  const unread = DB.notifikasi.filter(n=>!n.baca).length;
-  const dot = document.getElementById('notif-dot');
-  if (dot) dot.style.display = unread ? '' : 'none';
-  const iM = {danger:'fa-exclamation-circle',warning:'fa-clock',success:'fa-check-circle',info:'fa-info-circle'};
-  const cM = {danger:'rgba(239,68,68,0.1)',warning:'rgba(245,158,11,0.1)',success:'rgba(16,185,129,0.1)',info:'rgba(37,99,168,0.1)'};
-  const fM = {danger:'var(--danger)',warning:'var(--accent)',success:'var(--accent2)',info:'var(--primary-light)'};
-  list.innerHTML = DB.notifikasi.map((n,i) => `
-    <div class="notif-item" onclick="bacaNotif(${i})">
-      <div class="notif-icon" style="background:${cM[n.tipe]};color:${fM[n.tipe]}"><i class="fas ${iM[n.tipe]}"></i></div>
-      <div style="flex:1"><p>${n.pesan}</p><span>${n.waktu}</span></div>
-      ${!n.baca?'<div class="unread-dot"></div>':''}
-    </div>`).join('');
-  // Auto-notif stok kritis
-  DB.barang.filter(b=>b.stok<=b.minStok).forEach(b=>{
-    const exists = DB.notifikasi.some(n=>n.pesan.includes(b.nama)&&n.baca===false);
+function checkStokKritisNotif() {
+  // Tambah notif stok kritis SEBELUM render — pakai Set untuk cegah duplikat
+  DB.barang.filter(b => b.stok <= b.minStok).forEach(b => {
+    const key = 'stok-kritis-' + b.kode;
+    const exists = DB.notifikasi.some(n => n.key === key && !n.baca);
     if (!exists) {
-      DB.notifikasi.unshift({ id:Date.now(), pesan:`⚠️ Stok ${b.nama} kritis — sisa ${b.stok} ${b.satuan}`, waktu:'Baru saja', tipe:'danger', baca:false });
+      DB.notifikasi.unshift({
+        id: Date.now() + Math.random(), key,
+        pesan: `⚠️ Stok ${b.nama} kritis — sisa ${b.stok} ${b.satuan}`,
+        waktu: 'Baru saja', tipe: 'danger', baca: false
+      });
     }
   });
 }
 
-function bacaNotif(i)  { DB.notifikasi[i].baca=true; renderNotifications(); }
-function markAllRead() { DB.notifikasi.forEach(n=>n.baca=true); renderNotifications(); showToast('✅ Semua notifikasi dibaca'); }
-function toggleNotif() { document.getElementById('notif-panel').classList.toggle('open'); }
-function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('mobile-open'); }
+function renderNotifications() {
+  // Generate notif stok kritis dulu sebelum render
+  checkStokKritisNotif();
+
+  const list = document.getElementById('notif-list');
+  if (!list) return;
+
+  const unread = DB.notifikasi.filter(n => !n.baca).length;
+  const dot    = document.getElementById('notif-dot');
+  if (dot) {
+    dot.style.display = unread > 0 ? '' : 'none';
+    dot.textContent   = unread > 9 ? '9+' : String(unread || '');
+  }
+  // Update badge di header panel juga
+  const countBadge = document.getElementById('notif-count-badge');
+  if (countBadge) {
+    countBadge.style.display = unread > 0 ? '' : 'none';
+    countBadge.textContent   = unread > 9 ? '9+' : String(unread);
+  }
+
+  const iM = { danger:'fa-exclamation-circle', warning:'fa-clock', success:'fa-check-circle', info:'fa-info-circle' };
+  const cM = { danger:'rgba(239,68,68,0.1)', warning:'rgba(245,158,11,0.1)', success:'rgba(16,185,129,0.1)', info:'rgba(37,99,168,0.1)' };
+  const fM = { danger:'var(--danger)', warning:'var(--accent)', success:'var(--accent2)', info:'var(--primary-light)' };
+
+  list.innerHTML = DB.notifikasi.length === 0
+    ? '<div style="padding:28px;text-align:center;color:var(--text-muted)">✅ Tidak ada notifikasi</div>'
+    : DB.notifikasi.map((n, i) => `
+      <div class="notif-item${n.baca ? ' notif-read' : ''}" onclick="bacaNotif(${i})">
+        <div class="notif-icon" style="background:${cM[n.tipe]||cM.info};color:${fM[n.tipe]||fM.info}">
+          <i class="fas ${iM[n.tipe]||iM.info}"></i>
+        </div>
+        <div style="flex:1;min-width:0">
+          <p style="${n.baca?'color:var(--text-muted);font-weight:400':''}">${n.pesan}</p>
+          <span>${n.waktu}</span>
+        </div>
+        ${!n.baca ? '<div class="unread-dot" style="flex-shrink:0;margin-top:4px"></div>' : '<i class="fas fa-check" style="color:var(--accent2);font-size:11px;margin-top:4px;flex-shrink:0"></i>'}
+      </div>`).join('');
+}
+
+function bacaNotif(i) {
+  if (DB.notifikasi[i]) {
+    DB.notifikasi[i].baca = true;
+    renderNotifications(); // re-render langsung — index sudah benar
+  }
+}
+function markAllRead() {
+  DB.notifikasi.forEach(n => n.baca = true);
+  renderNotifications();
+  showToast('✅ Semua notifikasi ditandai dibaca');
+}
+function toggleNotif() {
+  const panel = document.getElementById('notif-panel');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open')) renderNotifications();
+}
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('sidebar-overlay');
+  sb.classList.toggle('mobile-open');
+  ov.classList.toggle('show', sb.classList.contains('mobile-open'));
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('sidebar-overlay').classList.remove('show');
+}
 
 // ───────────────────── SYNC ──────────────────────────────────────
 async function syncData() {
@@ -1538,10 +1674,21 @@ async function simpanPembelian() {
 // ───────────────────── CHAT ─────────────────────────────────────
 function toggleChat() {
   chatOpen = !chatOpen;
-  document.getElementById('chat-window').classList.toggle('open',chatOpen);
-  if (chatOpen) { document.getElementById('chat-unread-badge').style.display='none'; document.getElementById('chat-input')?.focus(); }
+  document.getElementById('chat-window').classList.toggle('open', chatOpen);
+  const fab = document.getElementById('chat-fab');
+  if (fab) fab.classList.toggle('chat-fab-active', chatOpen);
+  if (chatOpen) {
+    document.getElementById('chat-unread-badge').style.display = 'none';
+    document.getElementById('chat-input')?.focus();
+  }
 }
-function openChat() { chatOpen=true; document.getElementById('chat-window').classList.add('open'); document.getElementById('chat-unread-badge').style.display='none'; }
+function openChat() {
+  chatOpen = true;
+  document.getElementById('chat-window').classList.add('open');
+  document.getElementById('chat-unread-badge').style.display = 'none';
+  const fab = document.getElementById('chat-fab');
+  if (fab) fab.classList.add('chat-fab-active');
+}
 
 function switchChatTab(tab) {
   activeChatTab = tab;

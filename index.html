@@ -19,15 +19,18 @@
 <!-- ===== NOTIF PANEL ===== -->
 <div class="notif-panel" id="notif-panel">
   <div class="notif-header">
-    <h4>🔔 Notifikasi</h4>
-    <button class="btn btn-sm btn-outline" onclick="markAllRead()">Tandai Dibaca</button>
+    <h4>🔔 Notifikasi <span id="notif-count-badge" style="font-size:11px;font-weight:700;background:var(--danger);color:#fff;padding:2px 7px;border-radius:20px;margin-left:6px"></span></h4>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="btn btn-sm btn-outline" onclick="markAllRead()" style="font-size:11px;padding:4px 10px">✅ Baca Semua</button>
+      <button onclick="toggleNotif()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px;padding:2px 4px">✕</button>
+    </div>
   </div>
   <div class="notif-list" id="notif-list"></div>
 </div>
 
 <!-- ===== LIVE CHAT ===== -->
-<button class="chat-fab" onclick="toggleChat()" id="chat-fab">
-  <i class="fas fa-comment-dots"></i>
+<button class="chat-fab" onclick="toggleChat()" id="chat-fab" title="Live Chat Tim">
+  <i class="fas fa-comments"></i>
   <div class="chat-badge" id="chat-unread-badge" style="display:none">!</div>
 </button>
 <div class="chat-window" id="chat-window">
@@ -58,6 +61,9 @@
 </div>
 
 <!-- ===== LOGIN PAGE ===== -->
+<!-- Sidebar overlay (mobile) -->
+<div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
 <div id="login-page" style="display:flex">
   <div class="login-orbs"><div class="orb orb1"></div><div class="orb orb2"></div><div class="orb orb3"></div></div>
   <div class="login-grid-pattern"></div>
@@ -172,7 +178,7 @@
         <button class="btn-theme" id="theme-toggle-btn" onclick="toggleTheme()" title="Ganti Tema"><i class="fas fa-moon"></i></button>
         <button class="topbar-btn" onclick="syncData()" title="Sinkronisasi"><i class="fas fa-rotate" id="sync-icon"></i></button>
         <button class="topbar-btn" onclick="toggleNotif()" title="Notifikasi">
-          <i class="fas fa-bell"></i><div class="dot dot-red" id="notif-dot" style="display:none"></div>
+          <i class="fas fa-bell"></i><div class="dot dot-red notif-count" id="notif-dot" style="display:none"></div>
         </button>
       </div>
     </div>

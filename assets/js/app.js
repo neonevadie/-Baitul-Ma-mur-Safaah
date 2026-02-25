@@ -92,21 +92,6 @@ function fmtRp(n) {
   return 'Rp\u00A0' + (Number(n)||0).toLocaleString('id-ID');
 }
 
-/**
- * getPPNRate() — baca rate PPN dari checkbox + field di Pengaturan.
- * Return 0 jika checkbox "Aktifkan PPN" tidak dicentang.
- * Fallback ke appConfig.ppnRate jika elemen belum tersedia (e.g. load awal).
- */
-function getPPNRate() {
-  const cbEl   = document.getElementById('set-ppn-aktif');
-  const rateEl = document.getElementById('set-ppn-rate');
-  // Jika checkbox ada dan tidak dicentang → PPN 0%
-  if (cbEl && !cbEl.checked) return 0;
-  // Ambil dari field, fallback ke appConfig, default 11
-  const rate = parseFloat(rateEl?.value ?? appConfig?.ppnRate ?? 11);
-  return isNaN(rate) ? (appConfig?.ppnRate ?? 11) : rate;
-}
-
 // ───────────────────── STATE ────────────────────────────────────
 let currentUser  = null;
 let selectedRole = 'owner';
@@ -546,6 +531,20 @@ function toggleNavGroup(groupId) {
 function closeSidebar() {
   document.getElementById('sidebar').classList.remove('mobile-open');
   document.getElementById('sidebar-overlay').classList.remove('show');
+}
+
+// BUG #1 FIX — toggleSidebar was missing; hamburger menu errored on mobile
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('sidebar-overlay');
+  const isOpen = sb.classList.contains('mobile-open');
+  if (isOpen) {
+    sb.classList.remove('mobile-open');
+    ov.classList.remove('show');
+  } else {
+    sb.classList.add('mobile-open');
+    ov.classList.add('show');
+  }
 }
 
 function navigateTo(id) {
@@ -1329,9 +1328,6 @@ function renderSettings() {
   safe('set-company-rek',   c.rekening);
   safe('set-bonus-rate', appConfig?.bonusRate||2);
   safe('set-ppn-rate',   appConfig?.ppnRate ?? 11);
-  // Load status checkbox PPN — default true (aktif) jika belum pernah disimpan
-  const cbPpn = document.getElementById('set-ppn-aktif');
-  if (cbPpn) cbPpn.checked = appConfig?.ppnAktif !== false;
   // Load kategori dari appConfig cloud jika ada
   if (appConfig?.kategori?.length) {
     localStorage.setItem('bms_kategori', JSON.stringify(appConfig.kategori));
@@ -1448,12 +1444,10 @@ async function saveCompanyProfile() {
   };
   const bonusRate = parseInt(document.getElementById('set-bonus-rate')?.value)||2;
   const ppnRate   = parseInt(document.getElementById('set-ppn-rate')?.value) ?? 11;
-  const ppnAktif  = document.getElementById('set-ppn-aktif')?.checked !== false;
   if (!appConfig) appConfig = {};
   appConfig.company   = company;
   appConfig.bonusRate = bonusRate;
   appConfig.ppnRate   = ppnRate;
-  appConfig.ppnAktif  = ppnAktif;
   appConfig.kategori  = getKategoriList();
   try {
     await window.FS.setDoc(window.FS.docRef('test','appConfig'), appConfig);
@@ -1785,7 +1779,18 @@ async function syncData() {
 }
 
 // ───────────────────── MODAL ─────────────────────────────────────
-function openModal(id)  { const el=document.getElementById(id); if(el){el.classList.add('open'); document.body.style.overflow='hidden';} }
+// BUG #2 FIX — PPN label update integrated directly here; removed fragile override from index.html
+function openModal(id) {
+  const el = document.getElementById(id);
+  if (el) { el.classList.add('open'); document.body.style.overflow = 'hidden'; }
+  if (id === 'modal-invoice') {
+    setTimeout(() => {
+      const rate = typeof getBMSPPNRate === 'function' ? getBMSPPNRate() : 11;
+      const lbl  = document.getElementById('inv-ppn-label');
+      if (lbl) lbl.textContent = rate === 0 ? 'PPN (nonaktif)' : `PPN ${rate}%`;
+    }, 50);
+  }
+}
 function closeModal(id) { const el=document.getElementById(id); if(el){el.classList.remove('open'); document.body.style.overflow='';} }
 document.addEventListener('click', e => {
   if (e.target.classList.contains('modal-overlay')) { e.target.classList.remove('open'); document.body.style.overflow=''; }
@@ -2035,22 +2040,16 @@ function hitungTotal() {
   const subtotal = items.reduce((s,i)=>s+(i.total||0),0);
   const diskon   = parseFloat(document.getElementById('inv-diskon')?.value)||0;
   const afterD   = subtotal*(1-diskon/100);
-  const ppnRate  = getPPNRate();
+  const ppnRate  = appConfig?.ppnRate ?? 11;
   const ppn      = afterD*(ppnRate/100);
   const total    = afterD+ppn;
   const safe = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
   safe('inv-subtotal', fmtRp(subtotal));
   safe('inv-ppn',      fmtRp(Math.round(ppn)));
   safe('inv-total',    fmtRp(Math.round(total)));
-  // Tampilkan/sembunyikan baris PPN sesuai status aktif
-  const ppnRow   = document.getElementById('inv-ppn-row');
+  // Update label PPN agar menampilkan persentase aktual
   const ppnLabel = document.getElementById('inv-ppn-label');
-  if (ppnRate === 0) {
-    if (ppnRow)   ppnRow.style.display   = 'none';
-  } else {
-    if (ppnRow)   ppnRow.style.display   = 'flex';
-    if (ppnLabel) ppnLabel.textContent   = `PPN ${ppnRate}%`;
-  }
+  if (ppnLabel) ppnLabel.textContent = `PPN ${ppnRate}%`;
 }
 
 async function hapusTransaksi(i) {
@@ -2131,7 +2130,7 @@ async function simpanInvoice() {
   const subtotal   = items.reduce((s,i)=>s+i.total,0);
   const diskon     = parseFloat(document.getElementById('inv-diskon')?.value)||0;
   const afterD     = subtotal*(1-diskon/100);
-  const ppnRate    = getPPNRate();
+  const ppnRate    = appConfig?.ppnRate ?? 11;
   const ppn        = afterD*(ppnRate/100);
   const total      = Math.round(afterD+ppn);
   const metodeBayar = document.getElementById('inv-bayar')?.value || 'Tempo';
@@ -2146,8 +2145,7 @@ async function simpanInvoice() {
     metodeBayar,
     mitra, total, status,
     items, diskon,
-    ppnRate,
-    ppnAktif    : ppnRate > 0,
+    ppnRate     : appConfig?.ppnRate ?? 11,
     catatan     : document.getElementById('inv-catatan')?.value.trim() || '',
     salesName   : currentUser?.name||'',
     salesUid    : currentUser?.uid||'',
@@ -2242,7 +2240,7 @@ function previewInvoice() {
   const subtotal = items.reduce((s,i)=>s+(i.total||0),0);
   const diskon   = parseFloat(document.getElementById('inv-diskon')?.value)||0;
   const afterD   = subtotal*(1-diskon/100);
-  const ppnRate  = getPPNRate();
+  const ppnRate  = appConfig?.ppnRate ?? 11;
   const ppn      = afterD*(ppnRate/100);
   const total    = afterD+ppn;
   const catatan  = document.getElementById('inv-catatan')?.value.trim() || '';
@@ -2270,7 +2268,7 @@ function previewInvoice() {
     <div class="invoice-totals"><table>
       <tr><td>Subtotal</td><td style="text-align:right">Rp ${subtotal.toLocaleString('id-ID')}</td></tr>
       ${diskon>0?`<tr><td>Diskon (${diskon}%)</td><td style="text-align:right;color:var(--danger)">- Rp ${Math.round(subtotal*diskon/100).toLocaleString('id-ID')}</td></tr>`:''}
-      ${ppnRate>0?`<tr><td>PPN ${ppnRate}%</td><td style="text-align:right">Rp ${Math.round(ppn).toLocaleString('id-ID')}</td></tr>`:''}
+      <tr><td>PPN ${ppnRate}%</td><td style="text-align:right">Rp ${Math.round(ppn).toLocaleString('id-ID')}</td></tr>
       <tr class="total-row"><td>TOTAL</td><td style="text-align:right">Rp ${Math.round(total).toLocaleString('id-ID')}</td></tr>
     </table></div>
     ${catatan ? `<div class="invoice-catatan"><strong>Catatan:</strong> ${catatan}</div>` : ''}
@@ -2316,8 +2314,7 @@ function showInvoicePreview(i) {
   const subtotal   = inv.items ? inv.items.filter(Boolean).reduce((s,it)=>s+(it.total||0),0) : inv.total;
   const diskon     = inv.diskon || 0;
   const afterD     = subtotal * (1 - diskon/100);
-  // Gunakan ppnRate yang tersimpan di invoice; jika ppnAktif=false atau ppnRate=0 → tidak tampil
-  const ppnRate    = (inv.ppnAktif === false || inv.ppnRate === 0) ? 0 : (inv.ppnRate ?? appConfig?.ppnRate ?? 11);
+  const ppnRate    = inv.ppnRate ?? appConfig?.ppnRate ?? 11;
   const ppn        = afterD * (ppnRate/100);
 
   document.getElementById('invoice-preview-content').innerHTML = `
@@ -2353,7 +2350,7 @@ function showInvoicePreview(i) {
       <table>
         <tr><td>Subtotal</td><td style="text-align:right">Rp ${subtotal.toLocaleString('id-ID')}</td></tr>
         ${diskon > 0 ? `<tr><td>Diskon (${diskon}%)</td><td style="text-align:right;color:#dc2626">- Rp ${Math.round(subtotal*diskon/100).toLocaleString('id-ID')}</td></tr>` : ''}
-        ${ppnRate > 0 ? `<tr><td>PPN ${ppnRate}%</td><td style="text-align:right">Rp ${Math.round(ppn).toLocaleString('id-ID')}</td></tr>` : ''}
+        <tr><td>PPN ${ppnRate}%</td><td style="text-align:right">Rp ${Math.round(ppn).toLocaleString('id-ID')}</td></tr>
         <tr class="total-row"><td>TOTAL</td><td style="text-align:right">Rp ${(inv.total||0).toLocaleString('id-ID')}</td></tr>
       </table>
     </div>
@@ -2444,14 +2441,29 @@ async function hapusMitra(i) {
 function chatMitra(nama) { openChat(); showToast(`💬 Memulai chat dengan ${nama}`); }
 
 // ───────────────────── STOK ─────────────────────────────────────
+// BUG #4 FIX — sebelumnya tidak membaca harga beli dan tidak mencatat ke data pembelian/keuangan
 async function simpanStokMasuk() {
-  const nama = document.getElementById('sm-barang')?.value;
-  const qty  = parseInt(document.getElementById('sm-qty')?.value)||0;
+  const nama    = document.getElementById('sm-barang')?.value;
+  const qty     = parseInt(document.getElementById('sm-qty')?.value)||0;
+  const harga   = parseInt(document.getElementById('sm-harga')?.value)||0;
+  const pemasok = document.getElementById('sm-pemasok')?.value || '-';
+  const tgl     = document.getElementById('sm-tgl')?.value;
   if (!nama||qty<=0) { showToast('Lengkapi data stok masuk!','error'); return; }
   const b = DB.barang.find(b=>b.nama===nama);
   if (!b) return;
-  b.stok+=qty; b.masuk=(b.masuk||0)+qty;
-  if (b._id) try { await window.FS.updateDoc(window.FS.docRef('barang',b._id),{stok:b.stok,masuk:b.masuk}); } catch(e){}
+  b.stok  += qty;
+  b.masuk = (b.masuk||0) + qty;
+  if (b._id) {
+    try { await window.FS.updateDoc(window.FS.docRef('barang',b._id),{stok:b.stok,masuk:b.masuk}); }
+    catch(e) { /* offline — local state terupdate */ }
+  }
+  // Catat ke data pembelian/keuangan jika harga beli diisi
+  if (harga > 0) {
+    const pbData = { tgl, pemasok, barang: nama, qty, total: qty * harga };
+    try { await window.FS.addDoc(window.FS.col('pembelian'), pbData); }
+    catch(e) { DB.pembelian.unshift(pbData); }
+    renderPembelian();
+  }
   renderStok(); renderBarang(); renderStokKritis();
   addLog('stok','Stok masuk '+nama+' +'+qty);
   closeModal('modal-stok-masuk');
@@ -2484,15 +2496,34 @@ async function simpanPengeluaran() {
   closeModal('modal-pengeluaran');
 }
 
+// BUG #3 FIX — sebelumnya tidak mengupdate stok barang; sekarang stok ikut bertambah
 async function simpanPembelian() {
   const pemasok = document.getElementById('pb-pemasok')?.value;
   const barang  = document.getElementById('pb-barang')?.value;
   const qty     = parseInt(document.getElementById('pb-qty')?.value)||0;
   const harga   = parseInt(document.getElementById('pb-harga')?.value)||0;
   if (!pemasok||!barang||qty<=0) { showToast('Lengkapi data pembelian!','error'); return; }
-  const data = { tgl:document.getElementById('pb-tgl')?.value, pemasok, barang, total:qty*harga };
-  try { await window.FS.addDoc(window.FS.col('pembelian'),data); addLog('tambah','Pembelian: '+barang); showToast('✅ Pembelian tersimpan!'); }
-  catch(e) { DB.pembelian.unshift(data); renderPembelian(); showToast('✅ Pembelian dicatat (offline)'); }
+  const data = { tgl:document.getElementById('pb-tgl')?.value, pemasok, barang, qty, total:qty*harga };
+  try {
+    await window.FS.addDoc(window.FS.col('pembelian'), data);
+    addLog('tambah','Pembelian: '+barang);
+    showToast('✅ Pembelian tersimpan!');
+  } catch(e) {
+    DB.pembelian.unshift(data);
+    renderPembelian();
+    showToast('✅ Pembelian dicatat (offline)');
+  }
+  // Update stok barang yang dibeli
+  const b = DB.barang.find(x => x.nama === barang);
+  if (b) {
+    b.stok  = (b.stok  || 0) + qty;
+    b.masuk = (b.masuk || 0) + qty;
+    if (b._id) {
+      try { await window.FS.updateDoc(window.FS.docRef('barang', b._id), { stok: b.stok, masuk: b.masuk }); }
+      catch(e) { /* offline — local state sudah terupdate */ }
+    }
+    renderBarang(); renderStok(); renderStokKritis();
+  }
   closeModal('modal-pembelian');
 }
 

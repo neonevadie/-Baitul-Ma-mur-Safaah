@@ -16,6 +16,25 @@ import {
   reauthenticateWithCredential, updatePassword
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
+// BUG #8 — KEAMANAN: Firebase config terekspos di source code.
+// Ini dapat diterima untuk Firebase karena keamanan dijaga oleh Security Rules,
+// BUKAN kerahasiaan API Key. Namun WAJIB melakukan langkah berikut:
+//
+//  ✅ 1. Firebase Console > Authentication > Settings > Authorized Domains
+//         → Tambahkan HANYA domain produksi Anda (hapus localhost jika sudah live)
+//
+//  ✅ 2. Firebase Console > Firestore > Rules → Pastikan rules seperti ini:
+//         rules_version = '2';
+//         service cloud.firestore {
+//           match /databases/{database}/documents {
+//             match /{document=**} {
+//               allow read, write: if request.auth != null;
+//             }
+//           }
+//         }
+//
+//  ✅ 3. (Opsional) Aktifkan Firebase App Check untuk proteksi berlapis.
+//
 const firebaseConfig = {
   apiKey           : "AIzaSyDFwMLJTDqpbODBkL3rice1cYlQq0lIFSs",
   authDomain       : "bms-syafaah.firebaseapp.com",

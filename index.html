@@ -1306,7 +1306,7 @@
           <label>Ringkasan</label>
           <div style="background:var(--bg);padding:12px;border-radius:10px;font-size:13px">
             <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Subtotal</span><span id="inv-subtotal">Rp 0</span></div>
-            <div id="inv-ppn-row" style="display:flex;justify-content:space-between;margin-bottom:4px"><span id="inv-ppn-label">PPN 11%</span><span id="inv-ppn">Rp 0</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span id="inv-ppn-label">PPN 11%</span><span id="inv-ppn">Rp 0</span></div>
             <div style="display:flex;justify-content:space-between;font-weight:800;font-size:15px;border-top:2px solid var(--border);padding-top:8px"><span>TOTAL</span><span id="inv-total" style="color:var(--primary-light)">Rp 0</span></div>
           </div>
         </div>
@@ -1429,8 +1429,9 @@
       <div class="field"><label>Pemasok</label><select id="sm-pemasok"><option value="">Pilih Pemasok...</option></select></div>
       <div class="form-row">
         <div class="field"><label>Jumlah</label><input type="number" id="sm-qty" placeholder="0" min="1"></div>
-        <div class="field"><label>Tanggal</label><input type="date" id="sm-tgl"></div>
+        <div class="field"><label>Harga Beli / Satuan (Rp)</label><input type="number" id="sm-harga" placeholder="0" min="0"></div>
       </div>
+      <div class="field"><label>Tanggal</label><input type="date" id="sm-tgl"></div>
       <div class="field"><label>Catatan</label><input type="text" id="sm-ket" placeholder="Catatan masuk..."></div>
     </div>
     <div class="modal-footer">
@@ -1920,14 +1921,7 @@ window.updatePPNLabel = function() {
   if (lbl) lbl.textContent = rate === 0 ? 'PPN (nonaktif)' : `PPN ${rate}%`;
 };
 
-// Panggil setiap kali modal invoice dibuka
-const _origOpenModal = window.openModal;
-window.openModal = function(id) {
-  if (typeof _origOpenModal === 'function') _origOpenModal(id);
-  if (id === 'modal-invoice') {
-    setTimeout(window.updatePPNLabel, 50);
-  }
-};
+// BUG #2 FIX — override dihapus; logika updatePPNLabel sudah diintegrasikan ke openModal() di app.js
 </script>
 </body>
 </html>

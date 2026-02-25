@@ -206,6 +206,10 @@ function resetInvoiceFilter() {
 
 function getFilteredInvoices() {
   let list = [...DB.invoice];
+  // ROLE FILTER: sales hanya lihat invoice miliknya sendiri
+  if (currentUser?.role === 'sales') {
+    list = list.filter(i => i.salesUid === currentUser.uid || i.salesName === currentUser.name);
+  }
   if (invoiceFilter.dari)   list = list.filter(i => i.tgl >= invoiceFilter.dari);
   if (invoiceFilter.sampai) list = list.filter(i => i.tgl <= invoiceFilter.sampai);
   if (invoiceFilter.status) list = list.filter(i => i.status === invoiceFilter.status);
@@ -439,11 +443,11 @@ function buildProfileFromEmail(email, uid) {
     menus=['dashboard','barang','invoice','stok','mitra','keuangan','laporan','sales_dash','opname','gudang','tren_stok','surat_jalan','settings','log','tutorial'];
   } else if (email === roleEmails.admin || email.startsWith('admin@')) {
     role='admin'; name='Admin Keuangan'; avatar='R'; label='Admin Keuangan';
-    menus=['dashboard','barang','invoice','stok','mitra','keuangan','laporan','opname','gudang','tren_stok','surat_jalan','settings'];
+    menus=['dashboard','barang','invoice','stok','mitra','keuangan','laporan','sales_dash','opname','gudang','tren_stok','surat_jalan','settings','tutorial'];
   } else {
     const su = (cfg.salesUsers || []).find(s => s.email === email);
     if (su) { name=su.name; avatar=su.avatar||name[0]; }
-    menus=['dashboard','stok','invoice','mitra','sales_dash','surat_jalan'];
+    menus=['dashboard','invoice','stok','mitra','sales_dash','surat_jalan','tutorial'];
   }
   return { role, name, avatar, label, menus, uid };
 }
@@ -468,17 +472,36 @@ function applySession(user) {
 }
 
 function applyRoleRestrictions(role) {
-  const isSales = role === 'sales';
-  const isOwner = role === 'owner';
+  const isSales    = role === 'sales';
+  const isOwner    = role === 'owner';
+  const isAdmin    = role === 'admin';
+  const isOwnerAdmin = isOwner || isAdmin;
   const el = (id) => document.getElementById(id);
+
+  // ── Barang: sales hanya lihat, tidak bisa tambah/edit/hapus ──
   if (el('btn-tambah-barang')) el('btn-tambah-barang').style.display = isSales ? 'none' : '';
+
+  // ── Stok: sales tidak bisa stok masuk/keluar manual ──
   document.querySelectorAll('#page-stok .btn-success, #page-stok .btn-danger')
     .forEach(b => b.style.display = isSales ? 'none' : '');
-  // Log Aktivitas hanya owner — nav-log ada di dalam group g-setting
+
+  // ── Mitra: sales tidak bisa tambah/hapus mitra ──
+  if (el('btn-tambah-mitra')) el('btn-tambah-mitra').style.display = isSales ? 'none' : '';
+
+  // ── Keuangan: sales tidak punya akses (nav sudah dikunci di menus) ──
+
+  // ── Settings: admin bisa, sales tidak bisa ──
+  // (nav sudah dikunci di menus array per role)
+
+  // ── Log: hanya owner ──
   const logNav = document.getElementById('nav-log');
   if (logNav) logNav.style.display = isOwner ? '' : 'none';
-  // Kalau bukan owner, grup pengaturan hanya tampilkan settings saja
-  // (log tersembunyi secara nav-item, tapi group tetap ada untuk settings)
+
+  // ── Gudang: sales tidak bisa tambah/hapus gudang ──
+  if (el('btn-tambah-gudang')) el('btn-tambah-gudang').style.display = isSales ? 'none' : '';
+
+  // ── Opname: hanya owner/admin ──
+  // (nav sudah dikunci di menus array per role)
 }
 
 // ───────────────────── ONLINE STATUS ────────────────────────────
@@ -787,6 +810,7 @@ function renderLog() {
 }
 
 async function clearLog() {
+  if (currentUser?.role !== 'owner') { showToast('❌ Hanya Owner yang bisa hapus log!', 'error'); return; }
   if (!confirm('Hapus semua log aktivitas dari cloud? Tindakan ini permanen!')) return;
   try {
     const snap = await window.FS.getDocs(window.FS.col('log'));
@@ -953,6 +977,7 @@ function renderStok() {
 function renderMitra() {
   const tbody = document.getElementById('tbody-mitra');
   if (!tbody) return;
+  const canEdit = currentUser && (currentUser.role === 'owner' || currentUser.role === 'admin');
   const total = DB.mitra.length;
   const page  = pagination.mitra.page;
   const start = (page - 1) * PAGE_SIZE;
@@ -969,7 +994,7 @@ function renderMitra() {
       <td><span class="badge badge-green">${m.status||'Aktif'}</span></td>
       <td><div style="display:flex;gap:6px">
         <button class="btn btn-outline btn-icon btn-sm" onclick="chatMitra('${m.nama}')" title="Chat"><i class="fas fa-comment"></i></button>
-        <button class="btn btn-danger btn-icon btn-sm" onclick="hapusMitra(${i})" title="Hapus"><i class="fas fa-trash"></i></button>
+        ${canEdit ? `<button class="btn btn-danger btn-icon btn-sm" onclick="hapusMitra(${i})" title="Hapus"><i class="fas fa-trash"></i></button>` : ''}
       </div></td>
     </tr>`;
   }).join('');
@@ -1298,6 +1323,7 @@ function updateOpnameDiff(i) {
 }
 
 async function simpanOpnameRow(i) {
+  if (currentUser?.role === 'sales') { showToast('❌ Sales tidak bisa melakukan opname!', 'error'); return; }
   const b      = DB.barang[i];
   if (!b) return;
   const aktual = parseInt(document.getElementById(`op-act-${i}`)?.value) || 0;
@@ -1516,6 +1542,7 @@ function updateKategoriDropdowns() {
 }
 
 async function saveCompanyProfile() {
+  if (currentUser?.role === 'sales') { showToast('❌ Sales tidak bisa ubah profil perusahaan!', 'error'); return; }
   const g = (id) => document.getElementById(id)?.value.trim()||'';
   const company = {
     nama: g('set-company-nama'), alamat: g('set-company-alamat'),
@@ -1537,6 +1564,7 @@ async function saveCompanyProfile() {
 }
 
 async function tambahUserSales() {
+  if (currentUser?.role !== 'owner') { showToast('❌ Hanya Owner yang bisa tambah akun sales!', 'error'); return; }
   const name  = document.getElementById('new-sales-name')?.value.trim();
   const email = document.getElementById('new-sales-email')?.value.trim();
   const pass  = document.getElementById('new-sales-pass')?.value.trim();
@@ -1564,6 +1592,7 @@ async function tambahUserSales() {
 }
 
 async function hapusUserSales(i) {
+  if (currentUser?.role !== 'owner') { showToast('❌ Hanya Owner yang bisa hapus akun sales!', 'error'); return; }
   const s = appConfig?.salesUsers?.[i];
   if (!s) return;
   if (!confirm(`Hapus akun sales ${s.name}?`)) return;
@@ -1634,6 +1663,7 @@ async function gantiPassword() {
 
 // ───────────────────── CLEAR DATA FUNCTIONS ─────────────────────
 async function clearCollection(colName, label) {
+  if (currentUser?.role !== 'owner') { showToast('❌ Hanya Owner yang bisa hapus semua data!', 'error'); return; }
   if (!confirm(`Hapus SEMUA data ${label} dari cloud? Tindakan PERMANEN!`)) return;
   try {
     const snap = await window.FS.getDocs(window.FS.col(colName));
@@ -1653,6 +1683,7 @@ function clearDataBarang() { clearCollection('barang','Barang'); }
 
 // ───────────────────── BACKUP / RESTORE ─────────────────────────
 async function backupData() {
+  if (currentUser?.role === 'sales') { showToast('❌ Sales tidak bisa backup data!', 'error'); return; }
   const backup = {
     exportedAt: new Date().toISOString(),
     version: '3.0',
@@ -1879,6 +1910,7 @@ document.addEventListener('click', e => {
 
 // ───────────────────── BARANG CRUD ──────────────────────────────
 async function simpanBarang() {
+  if (currentUser?.role === 'sales') { showToast('❌ Sales tidak bisa tambah barang!', 'error'); return; }
   const nama = document.getElementById('b-nama')?.value.trim();
   const kode = document.getElementById('b-kode')?.value.trim();
   if (!nama||!kode) { showToast('Nama dan kode wajib diisi!','error'); return; }
@@ -1938,6 +1970,7 @@ function editBarang(i) {
 }
 
 async function simpanEditBarang() {
+  if (currentUser?.role === 'sales') { showToast('❌ Sales tidak bisa edit barang!', 'error'); return; }
   const i    = parseInt(document.getElementById('eb-idx')?.value);
   const b    = DB.barang[i];
   if (!b) return;
@@ -1985,6 +2018,7 @@ async function simpanEditBarang() {
 }
 
 async function hapusBarang(i) {
+  if (currentUser?.role === 'sales') { showToast('❌ Sales tidak bisa hapus barang!', 'error'); return; }
   const b = DB.barang[i];
   if (!confirm(`Hapus barang "${b.nama}"?`)) return;
   try {
@@ -2135,6 +2169,8 @@ function hitungTotal() {
 async function hapusTransaksi(i) {
   const inv = DB.invoice[i];
   if (!inv) return;
+  // Sales tidak bisa hapus transaksi apapun
+  if (currentUser?.role === 'sales') { showToast('❌ Sales tidak bisa hapus transaksi!', 'error'); return; }
 
   // Tampilkan detail stok yang akan dikembalikan
   const itemList = (inv.items || []).filter(Boolean)
@@ -2337,6 +2373,10 @@ async function simpanEditInvoice() {
   const i      = parseInt(document.getElementById('ei-idx')?.value);
   const inv    = DB.invoice[i];
   if (!inv) return;
+  // Sales hanya bisa edit invoice miliknya sendiri
+  if (currentUser?.role === 'sales' && inv.salesUid !== currentUser.uid) {
+    showToast('❌ Sales hanya bisa edit invoice miliknya!', 'error'); return;
+  }
   const status  = document.getElementById('ei-status')?.value;
   const tempo   = document.getElementById('ei-tempo')?.value || '-';
   const catatan = document.getElementById('ei-catatan')?.value.trim() || '';
@@ -2542,6 +2582,7 @@ function printInvoice() {
 
 // ───────────────────── MITRA CRUD ───────────────────────────────
 async function simpanMitra() {
+  if (currentUser?.role === 'sales') { showToast('❌ Sales tidak bisa tambah mitra!', 'error'); return; }
   const nama = document.getElementById('m-nama')?.value.trim();
   if (!nama) { showToast('Nama mitra wajib diisi!','error'); return; }
   const kode = `MTR-${String(DB.mitra.length+1).padStart(3,'0')}`;
@@ -2561,6 +2602,7 @@ async function simpanMitra() {
 }
 
 async function hapusMitra(i) {
+  if (currentUser?.role === 'sales') { showToast('❌ Sales tidak bisa hapus mitra!', 'error'); return; }
   const m = DB.mitra[i];
   if (!confirm(`Hapus mitra "${m.nama}"?`)) return;
   try {
@@ -2576,6 +2618,7 @@ function chatMitra(nama) { openChat(); showToast(`💬 Memulai chat dengan ${nam
 // ───────────────────── STOK ─────────────────────────────────────
 // BUG #4 FIX — sebelumnya tidak membaca harga beli dan tidak mencatat ke data pembelian/keuangan
 async function simpanStokMasuk() {
+  if (currentUser?.role === 'sales') { showToast('❌ Sales tidak bisa input stok masuk!', 'error'); return; }
   const nama    = document.getElementById('sm-barang')?.value;
   const qty     = parseInt(document.getElementById('sm-qty')?.value)||0;
   const harga   = parseInt(document.getElementById('sm-harga')?.value)||0;
@@ -2604,6 +2647,7 @@ async function simpanStokMasuk() {
 }
 
 async function simpanStokKeluar() {
+  if (currentUser?.role === 'sales') { showToast('❌ Sales tidak bisa input stok keluar manual!', 'error'); return; }
   const nama = document.getElementById('sk-barang')?.value;
   const qty  = parseInt(document.getElementById('sk-qty')?.value)||0;
   if (!nama||qty<=0) { showToast('Lengkapi data stok keluar!','error'); return; }
@@ -2620,6 +2664,7 @@ async function simpanStokKeluar() {
 
 // ───────────────────── KEUANGAN ─────────────────────────────────
 async function simpanPengeluaran() {
+  if (currentUser?.role === 'sales') { showToast('❌ Sales tidak bisa input pengeluaran!', 'error'); return; }
   const ket = document.getElementById('pe-ket')?.value.trim();
   const jml = parseInt(document.getElementById('pe-jml')?.value)||0;
   if (!ket||jml<=0) { showToast('Lengkapi data pengeluaran!','error'); return; }
@@ -2631,6 +2676,7 @@ async function simpanPengeluaran() {
 
 // BUG #3 FIX — sebelumnya tidak mengupdate stok barang; sekarang stok ikut bertambah
 async function simpanPembelian() {
+  if (currentUser?.role === 'sales') { showToast('❌ Sales tidak bisa input pembelian!', 'error'); return; }
   const pemasok = document.getElementById('pb-pemasok')?.value;
   const barang  = document.getElementById('pb-barang')?.value;
   const qty     = parseInt(document.getElementById('pb-qty')?.value)||0;
@@ -3108,7 +3154,18 @@ window.updateInvoiceData = async function(invId, updates) {
 function renderSuratJalanList() {
   const tbody = document.getElementById('tbody-surat-jalan');
   if (!tbody) return;
-  const list = DB.surat_jalan;
+  const canDelete = currentUser?.role === 'owner' || currentUser?.role === 'admin';
+  const isSales   = currentUser?.role === 'sales';
+  // Sales hanya lihat SJ miliknya (via invoice yang dia buat)
+  let list = DB.surat_jalan;
+  if (isSales) {
+    const myInvoiceNos = new Set(
+      DB.invoice
+        .filter(inv => inv.salesUid === currentUser.uid || inv.salesName === currentUser.name)
+        .map(inv => inv.no)
+    );
+    list = list.filter(sj => myInvoiceNos.has(sj.noInvoice));
+  }
   if (!list.length) {
     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">Belum ada surat jalan. Generate dari menu Transaksi.</td></tr>';
     return;
@@ -3126,7 +3183,7 @@ function renderSuratJalanList() {
           <button class="btn btn-primary btn-icon btn-sm" onclick="printSuratJalan('${sj._id}')" title="Print"><i class="fas fa-print"></i></button>
           <button class="btn btn-success btn-icon btn-sm" onclick="kirimWASuratJalan('${sj._id}')" title="Kirim WhatsApp"><i class="fab fa-whatsapp"></i></button>
           <button class="btn btn-outline btn-icon btn-sm" onclick="updateStatusSJ('${sj._id}')" title="Update Status"><i class="fas fa-check"></i></button>
-          <button class="btn btn-danger btn-icon btn-sm" onclick="hapusSuratJalan('${sj._id}')" title="Hapus"><i class="fas fa-trash"></i></button>
+          ${canDelete ? `<button class="btn btn-danger btn-icon btn-sm" onclick="hapusSuratJalan('${sj._id}')" title="Hapus"><i class="fas fa-trash"></i></button>` : ''}
         </div>
       </td>
     </tr>`).join('');
@@ -3148,6 +3205,8 @@ async function generateSuratJalan(invoiceId) {
     kendaraan  : '',
     catatan    : '',
     status     : 'Draft',
+    salesUid   : inv.salesUid || currentUser?.uid || '',
+    salesName  : inv.salesName || currentUser?.name || '',
     _ts        : window.FS.ts(),
   };
   try {
@@ -3475,6 +3534,7 @@ async function updateStatusSJ(id) {
 }
 
 async function hapusSuratJalan(id) {
+  if (currentUser?.role === 'sales') { showToast('❌ Sales tidak bisa hapus surat jalan!', 'error'); return; }
   if (!confirm('Hapus surat jalan ini?')) return;
   try {
     await window.FS.deleteDoc(window.FS.docRef('surat_jalan', id));
@@ -3651,6 +3711,7 @@ function renderGudangList() {
 }
 
 async function simpanGudang() {
+  if (currentUser?.role === 'sales') { showToast('❌ Sales tidak bisa tambah gudang!', 'error'); return; }
   const nama   = document.getElementById('gd-nama')?.value.trim();
   const lokasi = document.getElementById('gd-lokasi')?.value.trim();
   const pic    = document.getElementById('gd-pic')?.value.trim();
@@ -3668,6 +3729,7 @@ async function simpanGudang() {
 }
 
 async function hapusGudang(id) {
+  if (currentUser?.role === 'sales') { showToast('❌ Sales tidak bisa hapus gudang!', 'error'); return; }
   const g = DB.gudang.find(x => x._id === id);
   if (!confirm(`Hapus gudang "${g?.nama}"? Semua data stok di gudang ini akan hilang.`)) return;
   try {
@@ -3729,6 +3791,7 @@ function openTransferModal(fromId) {
 }
 
 async function simpanTransferStok() {
+  if (currentUser?.role === 'sales') { showToast('❌ Sales tidak bisa transfer stok antar gudang!', 'error'); return; }
   const tujuanId = document.getElementById('tf-tujuan')?.value;
   const namaBarang = document.getElementById('tf-barang')?.value;
   const qty = parseInt(document.getElementById('tf-qty')?.value || '0');

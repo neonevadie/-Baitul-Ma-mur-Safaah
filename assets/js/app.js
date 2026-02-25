@@ -3021,17 +3021,70 @@ async function updateSJField(id, field, value) {
   } catch(e) { console.warn('Update SJ failed:', e); }
 }
 
-function printSuratJalan(id) {
+ffunction printSuratJalan(id) {
   openPreviewSuratJalan(id);
+
+  // Tunggu lebih lama agar konten dynamic (Firestore/table) render selesai
   setTimeout(() => {
-    // FIX #20: Sembunyikan #print-invoice-wrapper agar invoice tidak ikut tercetak
+    const sjArea = document.querySelector('.sj-print-area');
+    
+    if (!sjArea || sjArea.innerHTML.trim() === '') {
+      console.error('Konten surat jalan kosong atau belum render!');
+      alert('Surat jalan belum siap dicetak. Tunggu sebentar lalu coba lagi.');
+      return;
+    }
+
+    // Hide invoice wrapper (seperti kode lama, kalau ada)
     const invWrapper = document.getElementById('print-invoice-wrapper');
     if (invWrapper) invWrapper.style.display = 'none';
 
-    document.body.classList.add('print-sj-mode');
-    window.print();
-    document.body.classList.remove('print-sj-mode');
-  }, 400);
+    // Buka window baru khusus untuk print surat jalan
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Izinkan popup di browser untuk mencetak surat jalan.');
+      return;
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="id">
+      <head>
+        <meta charset="UTF-8">
+        <title>Surat Jalan - CV. Baitul Ma'mur Syafaah</title>
+        <link rel="stylesheet" href="assets/css/style.css">  <!-- pastikan path CSS sesuai struktur repo kamu -->
+        <style>
+          body {
+            margin: 0;
+            padding: 20px;
+            background: white;
+            color: black;
+            font-family: Arial, sans-serif;
+          }
+          @media print {
+            body, html {
+              background: white !important;
+              color: black !important;
+              margin: 0;
+              padding: 10mm;
+            }
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+          }
+        </style>
+      </head>
+      <body onload="window.print(); setTimeout(() => window.close(), 3000);">
+        ${sjArea.outerHTML}  <!-- copy full konten surat jalan -->
+      </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+
+    // Restore invoice wrapper kalau perlu (setelah print window dibuka)
+    if (invWrapper) invWrapper.style.display = '';
+  }, 1200);  // Naikkan ke 1200-2000ms kalau data Firestore lambat
 }
 
 function kirimWASuratJalan(id) {

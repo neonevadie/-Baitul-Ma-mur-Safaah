@@ -86,6 +86,12 @@ const MENU_GROUPS = [
 
 let openGroups = new Set(['g-data']);
 
+// ───────────────────── CURRENCY HELPER ──────────────────────────
+// fmtRp(n) — Rp 384.000 | Rp 1.500.000  (konsisten seluruh app)
+function fmtRp(n) {
+  return 'Rp\u00A0' + (Number(n)||0).toLocaleString('id-ID');
+}
+
 // ───────────────────── STATE ────────────────────────────────────
 let currentUser  = null;
 let selectedRole = 'owner';
@@ -1047,9 +1053,9 @@ function buildSalesDashboard() {
       <div class="stat-card blue"><div class="stat-glow"></div><div class="stat-icon"><i class="fas fa-file-invoice-dollar"></i></div>
         <h3>${myInv.length}</h3><p>Total Invoice</p></div>
       <div class="stat-card green"><div class="stat-glow"></div><div class="stat-icon"><i class="fas fa-check-circle"></i></div>
-        <h3>Rp ${Math.round(lunas/1000000)}Jt</h3><p>Sudah Lunas</p></div>
+        <h3>${fmtRp(lunas)}</h3><p>Sudah Lunas</p></div>
       <div class="stat-card amber"><div class="stat-glow"></div><div class="stat-icon"><i class="fas fa-clock"></i></div>
-        <h3>Rp ${Math.round(pending/1000000)}Jt</h3><p>Belum Lunas</p></div>
+        <h3>${fmtRp(pending)}</h3><p>Belum Lunas</p></div>
       <div class="stat-card red" style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(16,185,129,0.04))"><div class="stat-glow" style="background:var(--accent2)"></div>
         <div class="stat-icon" style="background:rgba(16,185,129,0.12);color:var(--accent2)"><i class="fas fa-gift"></i></div>
         <h3 style="color:var(--accent2)">Rp ${bonus.toLocaleString('id-ID')}</h3><p>Estimasi Bonus (${appConfig?.bonusRate||2}%)</p></div>
@@ -1937,9 +1943,9 @@ function renderInvoiceStats() {
   const cash    = DB.invoice.filter(i=>i.metodeBayar==='Tunai'||i.metodeBayar==='Transfer').reduce((s,i)=>s+(i.total||0),0);
   const safe = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
   safe('trx-total-count', total);
-  safe('trx-lunas',  'Rp '+Math.round(lunas/1000)+'rb');
-  safe('trx-belum',  'Rp '+Math.round(belum/1000)+'rb');
-  safe('trx-cash',   'Rp '+Math.round(cash/1000)+'rb');
+  safe('trx-lunas',  fmtRp(lunas));
+  safe('trx-belum',  fmtRp(belum));
+  safe('trx-cash',   fmtRp(cash));
 }
 
 // ───────────────────── INVOICE CRUD ─────────────────────────────
@@ -1973,14 +1979,14 @@ function updateItemBarang(idx, sel) {
   const nama   = opt.text.trim().replace(/\s*\(.*\)$/, '').trim();
   invItems[idx] = { ...invItems[idx], nama, harga, satuan, stok, total:harga*(invItems[idx].qty||1) };
   document.getElementById(`inv-sat-${idx}`).textContent  = satuan;
-  document.getElementById(`inv-hp-${idx}`).textContent   = 'Rp '+harga.toLocaleString('id-ID');
+  document.getElementById(`inv-hp-${idx}`).textContent   = fmtRp(harga);
   const stokEl = document.getElementById(`inv-stok-${idx}`);
   if (stokEl) {
     stokEl.innerHTML = stok <= 0
       ? `<span style="color:var(--danger);font-weight:700">⛔ Habis</span>`
       : `<span style="color:${stok<=10?'var(--accent)':'var(--accent2)'}">Sisa: ${stok}</span>`;
   }
-  document.getElementById(`inv-tot-${idx}`).textContent  = 'Rp '+invItems[idx].total.toLocaleString('id-ID');
+  document.getElementById(`inv-tot-${idx}`).textContent  = fmtRp(invItems[idx].total);
   hitungTotal();
 }
 
@@ -1998,7 +2004,7 @@ function updateItemQty(idx, input) {
   }
   invItems[idx].total = invItems[idx].harga * invItems[idx].qty;
   const el = document.getElementById(`inv-tot-${idx}`);
-  if (el) el.textContent = 'Rp '+invItems[idx].total.toLocaleString('id-ID');
+  if (el) el.textContent = fmtRp(invItems[idx].total);
   hitungTotal();
 }
 
@@ -2013,9 +2019,9 @@ function hitungTotal() {
   const ppn      = afterD*(ppnRate/100);
   const total    = afterD+ppn;
   const safe = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-  safe('inv-subtotal','Rp '+subtotal.toLocaleString('id-ID'));
-  safe('inv-ppn',     'Rp '+Math.round(ppn).toLocaleString('id-ID'));
-  safe('inv-total',   'Rp '+Math.round(total).toLocaleString('id-ID'));
+  safe('inv-subtotal', fmtRp(subtotal));
+  safe('inv-ppn',      fmtRp(Math.round(ppn)));
+  safe('inv-total',    fmtRp(Math.round(total)));
   // Update label PPN agar menampilkan persentase aktual
   const ppnLabel = document.getElementById('inv-ppn-label');
   if (ppnLabel) ppnLabel.textContent = `PPN ${ppnRate}%`;
@@ -2782,7 +2788,7 @@ function renderDashboardStats() {
   const totalPembelian   = DB.pembelian.reduce((s,p)=>s+(p.total||0),0);
   const totalPendapatan  = DB.invoice.filter(i=>i.status==='Lunas').reduce((s,i)=>s+(i.total||0),0);
   const laba             = totalPendapatan - totalPengeluaran - totalPembelian;
-  const keuSafe = (id,v) => { const el=document.getElementById(id); if(el) el.textContent='Rp '+v.toLocaleString('id-ID'); };
+  const keuSafe = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=fmtRp(v); };
   keuSafe('keu-total-pengeluaran', totalPengeluaran);
   keuSafe('keu-total-pembelian',   totalPembelian);
   keuSafe('keu-total-pendapatan',  totalPendapatan);
@@ -2965,6 +2971,7 @@ async function generateSuratJalan(invoiceId) {
 }
 
 function openPreviewSuratJalan(id) {
+  window._lastSJId = id; // simpan ID untuk tombol print di modal
   const sj = DB.surat_jalan.find(s => s._id === id);
   if (!sj) return;
   const co = appConfig?.company || {};
@@ -3022,89 +3029,229 @@ async function updateSJField(id, field, value) {
 }
 
 function printSuratJalan(id) {
-  console.log('Start print surat jalan ID:', id);
+  // Ambil data surat jalan langsung dari DB — tidak bergantung pada DOM modal
+  const sj = DB.surat_jalan.find(s => s._id === id);
+  if (!sj) { showToast('Data surat jalan tidak ditemukan!', 'error'); return; }
 
-  // Buka modal/preview dulu
-  openPreviewSuratJalan(id);
+  const co = appConfig?.company || {};
+  const namaPerusahaan = co.nama  || "CV. Baitul Ma'mur Syafaah";
+  const alamat         = co.alamat || '';
+  const telp           = co.telp   || '';
+  const email          = co.email  || '';
 
-  // Interval untuk menunggu modal terbuka dan konten ada (dari screenshot, cari teks unik)
-  const checkModal = setInterval(() => {
-    // Selector prioritas berdasarkan screenshot kamu
-    const modalContainer = document.querySelector('.modal-body') ||  // umum untuk Bootstrap/custom modal
-                           document.querySelector('.modal-content') ||
-                           document.querySelector('div:contains("SURAT JALAN")')?.closest('.modal') ||
-                           document.querySelector('.sj-print-area') ||  // fallback
-                           document.querySelector('.preview-container');  // kalau ada class preview
+  const itemsRows = (sj.items || []).filter(Boolean).map((it, i) => `
+    <tr>
+      <td style="text-align:center">${i + 1}</td>
+      <td>${it.nama || '-'}</td>
+      <td style="text-align:center">${it.qty || 0}</td>
+      <td style="text-align:center">${it.satuan || ''}</td>
+      <td></td>
+    </tr>`).join('') || `<tr><td colspan="5" style="text-align:center;color:#666">Tidak ada item</td></tr>`;
 
-    if (modalContainer && 
-        modalContainer.innerHTML.includes('SURAT JALAN') && 
-        modalContainer.querySelector('table') && 
-        modalContainer.querySelector('table tr')) {  // pastikan tabel punya row
-
-      clearInterval(checkModal);
-      console.log('Modal surat jalan siap! Panjang konten:', modalContainer.innerHTML.length);
-
-      // Buka popup baru khusus print
-      const printPopup = window.open('', '_blank', 'width=1100,height=900,scrollbars=yes,resizable=yes');
-      if (!printPopup) {
-        alert('Izinkan popup di browser untuk cetak surat jalan!');
-        return;
-      }
-
-      printPopup.document.write(`
-        <!DOCTYPE html>
-        <html lang="id">
-        <head>
-          <meta charset="UTF-8">
-          <title>Surat Jalan ${id || ''} - CV. Baitul Ma'mur Syafaah</title>
-          <link rel="stylesheet" href="assets/css/style.css">
-          <style>
-            body { 
-              margin: 0; 
-              padding: 1cm; 
-              background: white; 
-              color: black; 
-              font-family: Arial, sans-serif; 
-              min-height: 100vh;
-            }
-            table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-            th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-            .modal-body, .modal-content, .sj-print-area { 
-              display: block !important; 
-              visibility: visible !important; 
-              opacity: 1 !important; 
-              position: static !important; 
-              transform: none !important;
-            }
-            @media print {
-              body { padding: 10mm !important; background: white !important; margin: 0 !important; }
-              * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
-            }
-          </style>
-        </head>
-        <body onload="window.print(); setTimeout(() => window.close(), 7000);">
-          ${modalContainer.outerHTML}
-        </body>
-        </html>
-      `);
-
-      printPopup.document.close();
-
-      console.log('Popup print surat jalan terbuka – isi harusnya muncul sekarang');
-
-      // Restore invoice kalau perlu (opsional)
-      const invWrapper = document.getElementById('print-invoice-wrapper');
-      if (invWrapper) invWrapper.style.display = '';
-    } else {
-      console.log('Menunggu modal surat jalan lengkap...');
+  const htmlContent = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Surat Jalan ${sj.noSJ} — ${namaPerusahaan}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 12px;
+      color: #111;
+      background: white;
+      padding: 15mm 18mm;
     }
-  }, 800);  // cek setiap 0.8 detik
 
-  // Stop kalau terlalu lama
-  setTimeout(() => {
-    clearInterval(checkModal);
-    console.log('Timeout: modal surat jalan tidak terdeteksi');
-  }, 20000);
+    /* ── Header ── */
+    .sj-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 2.5px solid #0f2744;
+    }
+    .sj-company h2 { font-size: 15px; font-weight: 800; margin-bottom: 4px; color: #0f2744; }
+    .sj-company p  { font-size: 11px; color: #555; line-height: 1.5; }
+    .sj-title-box  { text-align: right; }
+    .sj-title-box h1 { font-size: 22px; font-weight: 900; color: #0f2744; margin-bottom: 6px; }
+    .sj-meta-table td { font-size: 11px; padding: 2px 4px 2px 0; vertical-align: top; }
+
+    /* ── Penerima ── */
+    .sj-recipient {
+      background: #f8fafc;
+      border-left: 4px solid #0f2744;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      font-size: 12px;
+      border-radius: 0 6px 6px 0;
+      line-height: 1.6;
+    }
+
+    /* ── Transport ── */
+    .sj-transport {
+      display: flex;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .sj-transport-item { flex: 1; }
+    .sj-transport-item label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #555;
+      display: block;
+      margin-bottom: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .sj-field-value {
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 12px;
+      min-height: 30px;
+      background: #fafafa;
+    }
+
+    /* ── Tabel Item ── */
+    .sj-items-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 14px;
+      font-size: 12px;
+    }
+    .sj-items-table th {
+      background: #0f2744;
+      color: #fff;
+      padding: 7px 10px;
+      text-align: left;
+      font-weight: 700;
+      font-size: 11px;
+    }
+    .sj-items-table td {
+      padding: 7px 10px;
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: middle;
+    }
+    .sj-items-table tr:nth-child(even) td { background: #f9fafb; }
+
+    /* ── Catatan ── */
+    .sj-catatan { margin-bottom: 18px; }
+    .sj-catatan label { font-size: 10px; font-weight: 700; color: #555; display: block; margin-bottom: 3px; text-transform: uppercase; }
+    .sj-catatan .sj-field-value { min-height: 38px; }
+
+    /* ── TTD ── */
+    .sj-ttd { display: flex; gap: 14px; margin-top: 18px; }
+    .sj-ttd-col { flex: 1; text-align: center; }
+    .sj-ttd-label { font-size: 11px; font-weight: 700; margin-bottom: 6px; }
+    .sj-ttd-space { height: 55px; border-bottom: 1px solid #999; margin: 0 10px; }
+    .sj-ttd-name  { font-size: 11px; margin-top: 5px; color: #444; }
+
+    /* ── Print override ── */
+    @media print {
+      body { padding: 10mm 14mm !important; }
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="sj-header">
+    <div class="sj-company">
+      <h2>${namaPerusahaan}</h2>
+      <p>${alamat}</p>
+      <p>${telp ? 'Telp: ' + telp : ''}${telp && email ? ' &nbsp;|&nbsp; ' : ''}${email || ''}</p>
+    </div>
+    <div class="sj-title-box">
+      <h1>SURAT JALAN</h1>
+      <table class="sj-meta-table">
+        <tr><td>No. SJ</td><td>:&nbsp;</td><td><strong>${sj.noSJ || '-'}</strong></td></tr>
+        <tr><td>No. Invoice</td><td>:&nbsp;</td><td>${sj.noInvoice || '-'}</td></tr>
+        <tr><td>Tanggal</td><td>:&nbsp;</td><td>${sj.tgl || '-'}</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="sj-recipient">
+    <strong>Kepada Yth:</strong><br>
+    <strong>${sj.mitra || '-'}</strong><br>
+    ${sj.alamatMitra && sj.alamatMitra !== '-' ? sj.alamatMitra : ''}
+  </div>
+
+  <div class="sj-transport">
+    <div class="sj-transport-item">
+      <label>Sopir / Pengantar</label>
+      <div class="sj-field-value">${sj.sopir && sj.sopir !== 'Klik untuk isi' ? sj.sopir : '&nbsp;'}</div>
+    </div>
+    <div class="sj-transport-item">
+      <label>No. Kendaraan</label>
+      <div class="sj-field-value">${sj.kendaraan && sj.kendaraan !== 'Klik untuk isi' ? sj.kendaraan : '&nbsp;'}</div>
+    </div>
+  </div>
+
+  <table class="sj-items-table">
+    <thead>
+      <tr>
+        <th style="width:40px;text-align:center">No</th>
+        <th>Nama Barang</th>
+        <th style="width:60px;text-align:center">Qty</th>
+        <th style="width:70px;text-align:center">Satuan</th>
+        <th>Keterangan</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itemsRows}
+    </tbody>
+  </table>
+
+  <div class="sj-catatan">
+    <label>Catatan</label>
+    <div class="sj-field-value">${sj.catatan && sj.catatan !== '-' ? sj.catatan : '&nbsp;'}</div>
+  </div>
+
+  <div class="sj-ttd">
+    <div class="sj-ttd-col">
+      <div class="sj-ttd-label">Disiapkan Oleh,</div>
+      <div class="sj-ttd-space"></div>
+      <div class="sj-ttd-name">( _________________ )</div>
+    </div>
+    <div class="sj-ttd-col">
+      <div class="sj-ttd-label">Pengantar / Sopir,</div>
+      <div class="sj-ttd-space"></div>
+      <div class="sj-ttd-name">( ${sj.sopir && sj.sopir !== 'Klik untuk isi' ? sj.sopir : '________________'} )</div>
+    </div>
+    <div class="sj-ttd-col">
+      <div class="sj-ttd-label">Penerima,</div>
+      <div class="sj-ttd-space"></div>
+      <div class="sj-ttd-name">( _________________ )</div>
+    </div>
+  </div>
+
+  <script>
+    window.onload = function() {
+      window.print();
+      setTimeout(function() { window.close(); }, 4000);
+    };
+  <\/script>
+</body>
+</html>`;
+
+  const printPopup = window.open('', '_blank', 'width=900,height=750,scrollbars=yes,resizable=yes');
+  if (!printPopup) {
+    showToast('⚠️ Popup diblokir browser! Izinkan popup untuk halaman ini lalu coba lagi.', 'error');
+    return;
+  }
+  printPopup.document.open();
+  printPopup.document.write(htmlContent);
+  printPopup.document.close();
+}
+
+// Dipanggil dari tombol Cetak di dalam modal preview surat jalan
+function printSuratJalanFromModal() {
+  const id = window._lastSJId;
+  if (!id) { showToast('ID surat jalan tidak ditemukan!', 'error'); return; }
+  printSuratJalan(id);
 }
 
 function kirimWASuratJalan(id) {
@@ -3300,7 +3447,7 @@ function renderGudangList() {
         <div class="gudang-stats">
           <div class="gudang-stat"><span>Total Item</span><strong>${(g.stokItems||[]).length}</strong></div>
           <div class="gudang-stat"><span>Total Unit</span><strong>${totalStok.toLocaleString('id-ID')}</strong></div>
-          <div class="gudang-stat"><span>Nilai Stok</span><strong>Rp ${Math.round(totalNilai/1000000)}Jt</strong></div>
+          <div class="gudang-stat"><span>Nilai Stok</span><strong>${fmtRp(totalNilai)}</strong></div>
         </div>
         <div class="gudang-actions">
           <button class="btn btn-outline btn-sm" onclick="lihatStokGudang('${g._id}')"><i class="fas fa-eye"></i> Lihat Stok</button>

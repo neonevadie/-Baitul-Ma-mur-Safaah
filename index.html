@@ -494,9 +494,12 @@
         <div class="card">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Kode</th><th>Nama Barang</th><th>Satuan</th><th>Stok Sistem</th><th>Stok Aktual</th><th>Selisih</th><th>Status</th><th>Catatan</th></tr></thead>
+              <thead><tr><th>Kode</th><th>Nama Barang</th><th>Satuan</th><th>Stok Sistem</th><th>Stok Aktual</th><th>Selisih</th><th>Status</th><th>Catatan</th><th>Aksi</th></tr></thead>
               <tbody id="opname-table-body"></tbody>
             </table>
+          </div>
+          <div style="padding:16px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--border)">
+            <button class="btn btn-primary" onclick="simpanSemuaOpname()"><i class="fas fa-save"></i> Simpan Semua Opname</button>
           </div>
         </div>
       </div>
@@ -622,24 +625,95 @@
       <!-- ===== TUTORIAL ===== -->
       <div class="page" id="page-tutorial">
         <div class="section-header">
-          <div class="section-title">📚 Panduan & Deploy</div>
-          <div class="section-sub">Cara menggunakan dan mengembangkan BMS</div>
+          <div class="section-title">📖 Panduan Penggunaan BMS</div>
+          <div class="section-sub">Cara menggunakan sistem manajemen bisnis CV. Baitul Ma'mur Syafaah</div>
         </div>
-        <div class="dashboard-grid">
+
+        <!-- Memulai -->
+        <div class="dashboard-grid" style="margin-bottom:20px">
           <div class="card">
-            <div class="card-header"><h3>🚀 Update ke GitHub</h3></div>
+            <div class="card-header"><h3>🔐 Cara Login</h3></div>
             <div class="card-body">
-              <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Edit File</h4><p>Edit <code>index.html</code>, <code>style.css</code>, atau <code>app.js</code> di folder <code>D:\bms\</code></p></div></div>
-              <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Push ke GitHub</h4><p><code>git add .</code> → <code>git commit -m "update"</code> → <code>git push</code></p></div></div>
-              <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Live dalam 1-2 Menit</h4><p>GitHub Pages auto-deploy. Buka <a href="https://neonevadie.github.io/-Baitul-Ma-mur-Safaah/" target="_blank">neonevadie.github.io/-Baitul-Ma-mur-Safaah/</a></p></div></div>
+              <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Buka Aplikasi</h4><p>Akses BMS melalui browser di <strong>neonevadie.github.io/-Baitul-Ma-mur-Safaah/</strong></p></div></div>
+              <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Pilih Role</h4><p>Pilih role Anda: <strong>Owner</strong>, <strong>Admin</strong>, atau <strong>Sales</strong> di halaman login</p></div></div>
+              <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Masukkan Password</h4><p>Gunakan email &amp; password yang sudah dibuat oleh Owner. Hubungi Owner jika lupa password.</p></div></div>
             </div>
           </div>
           <div class="card">
-            <div class="card-header"><h3>🔥 Firebase Setup</h3></div>
+            <div class="card-header"><h3>🛒 Membuat Transaksi / Invoice</h3></div>
             <div class="card-body">
-              <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Firestore Rules</h4><p>Koleksi <code>test</code> = bebas, koleksi lain = wajib login (sesuai screenshot Firebase)</p></div></div>
-              <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Firebase Auth</h4><p>Aktifkan <strong>Email/Password</strong> di Authentication → Sign-in method</p></div></div>
-              <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Buat User Owner</h4><p>Firebase Console → Authentication → Add User → <code>owner@bms-syafaah.id</code></p></div></div>
+              <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Buka Menu Transaksi</h4><p>Klik <strong>Transaksi</strong> di sidebar kiri, lalu klik tombol <strong>+ Buat Invoice</strong></p></div></div>
+              <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Isi Data Transaksi</h4><p>Pilih mitra (pelanggan), tambahkan barang, pilih metode bayar: <strong>Tunai / Transfer / Tempo</strong></p></div></div>
+              <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Simpan &amp; Cetak</h4><p>Klik <strong>Simpan</strong> — stok otomatis berkurang. Klik ikon print untuk cetak nota.</p></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stok & Barang -->
+        <div class="dashboard-grid" style="margin-bottom:20px">
+          <div class="card">
+            <div class="card-header"><h3>📦 Kelola Data Barang</h3></div>
+            <div class="card-body">
+              <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Tambah Barang Baru</h4><p>Menu <strong>Data Bisnis → Data Barang</strong>, klik <strong>+ Tambah Barang</strong>. Isi kode, nama, harga beli/jual, stok awal.</p></div></div>
+              <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Edit / Hapus Barang</h4><p>Klik ikon ✏️ untuk edit, 🗑️ untuk hapus. Pastikan stok tidak 0 sebelum transaksi.</p></div></div>
+              <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Pantau Stok Kritis</h4><p>Barang dengan stok di bawah <strong>Min. Stok</strong> akan muncul notifikasi ⚠️ otomatis di Dashboard.</p></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>📋 Stock Opname</h3></div>
+            <div class="card-body">
+              <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Buka Stock Opname</h4><p>Menu <strong>Stock Opname</strong> — dilakukan rutin (mingguan/bulanan) untuk cek fisik gudang</p></div></div>
+              <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Isi Stok Aktual</h4><p>Isi kolom <strong>Stok Aktual</strong> sesuai hitungan fisik. Selisih dan status akan otomatis terhitung.</p></div></div>
+              <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Simpan &amp; Export</h4><p>Klik <strong>Simpan Opname</strong> untuk update stok sistem, atau <strong>Generate CSV</strong> untuk laporan.</p></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Keuangan & Laporan -->
+        <div class="dashboard-grid" style="margin-bottom:20px">
+          <div class="card">
+            <div class="card-header"><h3>💰 Pencatatan Keuangan</h3></div>
+            <div class="card-body">
+              <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Catat Pengeluaran</h4><p>Menu <strong>Keuangan</strong> → tab Pengeluaran. Isi tanggal, keterangan, kategori, dan jumlah.</p></div></div>
+              <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Catat Pembelian Stok</h4><p>Tab <strong>Pembelian</strong> untuk mencatat pembelian barang dari supplier — stok otomatis bertambah.</p></div></div>
+              <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Lihat Laporan</h4><p>Menu <strong>Laporan &amp; Analitik</strong> untuk melihat grafik penjualan, margin, dan perputaran stok.</p></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>👥 Mitra &amp; Pengguna</h3></div>
+            <div class="card-body">
+              <div class="tutorial-step"><div class="step-num">1</div><div class="step-content"><h4>Tambah Mitra Bisnis</h4><p>Menu <strong>Data Bisnis → Mitra Bisnis</strong>. Pilih tipe: <strong>Pelanggan</strong> atau <strong>Pemasok</strong>.</p></div></div>
+              <div class="tutorial-step"><div class="step-num">2</div><div class="step-content"><h4>Kelola Akun Sales</h4><p>Menu <strong>Pengaturan → Manajemen Pengguna</strong>. Isi nama, email, dan password untuk buat akun sales baru.</p></div></div>
+              <div class="tutorial-step"><div class="step-num">3</div><div class="step-content"><h4>Gunakan Live Chat</h4><p>Klik ikon 💬 di pojok kanan bawah untuk berkomunikasi real-time dengan seluruh tim.</p></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tips Hak Akses -->
+        <div class="card">
+          <div class="card-header"><h3>💡 Tips &amp; Informasi Hak Akses</h3></div>
+          <div class="card-body">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+              <div style="background:rgba(255,255,255,0.04);border-radius:12px;padding:16px;border:1px solid var(--border)">
+                <div style="font-size:20px;margin-bottom:8px">👑</div>
+                <strong style="color:var(--accent)">Owner</strong>
+                <p style="font-size:12px;color:var(--text-muted);margin-top:6px">Akses penuh semua menu: transaksi, barang, keuangan, laporan, pengaturan, log aktivitas, dan panduan.</p>
+              </div>
+              <div style="background:rgba(255,255,255,0.04);border-radius:12px;padding:16px;border:1px solid var(--border)">
+                <div style="font-size:20px;margin-bottom:8px">🛠️</div>
+                <strong style="color:var(--accent2)">Admin</strong>
+                <p style="font-size:12px;color:var(--text-muted);margin-top:6px">Akses transaksi, barang, mitra, keuangan, laporan, opname, dan pengaturan. Tidak bisa lihat log.</p>
+              </div>
+              <div style="background:rgba(255,255,255,0.04);border-radius:12px;padding:16px;border:1px solid var(--border)">
+                <div style="font-size:20px;margin-bottom:8px">📊</div>
+                <strong style="color:#7c3aed">Sales</strong>
+                <p style="font-size:12px;color:var(--text-muted);margin-top:6px">Akses dashboard, stok, transaksi, mitra, dan dashboard performa sales pribadi.</p>
+              </div>
+              <div style="background:rgba(255,255,255,0.04);border-radius:12px;padding:16px;border:1px solid var(--border)">
+                <div style="font-size:20px;margin-bottom:8px">📞</div>
+                <strong>Butuh Bantuan?</strong>
+                <p style="font-size:12px;color:var(--text-muted);margin-top:6px">Hubungi Owner BMS melalui Live Chat internal (ikon 💬) atau WhatsApp untuk kendala teknis.</p>
+              </div>
             </div>
           </div>
         </div>

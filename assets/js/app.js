@@ -43,7 +43,7 @@ const MENU_GROUPS = [
   { id:'g-tutorial',  label:'Panduan',      icon:'fa-circle-question',  single:'tutorial'  },
 ];
 
-let openGroups = new Set(['g-data']);
+let openGroups = new Set(['g-data', 'g-setting']);
 
 // ───────────────────── STATE ────────────────────────────────────
 let currentUser  = null;
@@ -833,30 +833,74 @@ function renderOpname() {
   if (!el) return;
   const date = new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
   document.getElementById('opname-date').textContent = 'Tanggal: ' + date;
-  el.innerHTML = DB.barang.map((b,i) => `
-    <tr>
+  el.innerHTML = DB.barang.map((b,i) => {
+    const isCritical = b.stok <= b.minStok;
+    return `
+    <tr id="op-row-${i}">
       <td><code>${b.kode}</code></td>
       <td><strong>${b.nama}</strong></td>
       <td>${b.satuan}</td>
       <td style="font-weight:700">${b.stok}</td>
       <td><input type="number" id="op-act-${i}" value="${b.stok}" min="0" style="width:80px;border:1.5px solid var(--border);border-radius:8px;padding:6px;text-align:center" oninput="updateOpnameDiff(${i})"></td>
       <td id="op-diff-${i}" style="font-weight:700">0</td>
-      <td><span class="badge ${b.stok<=b.minStok?'badge-red':'badge-green'}">${b.stok<=b.minStok?'⚠️ Kritis':'✅ Aman'}</span></td>
+      <td id="op-status-${i}"><span class="badge ${isCritical?'badge-red':'badge-green'}">${isCritical?'⚠️ Kritis':'✅ Aman'}</span></td>
       <td><input type="text" id="op-note-${i}" placeholder="Catatan..." style="width:120px;border:1.5px solid var(--border);border-radius:8px;padding:6px;font-size:12px"></td>
-    </tr>`).join('');
+      <td><button class="btn btn-primary btn-sm btn-icon" onclick="simpanOpnameBaris(${i})" title="Simpan baris ini"><i class="fas fa-save"></i></button></td>
+    </tr>`}).join('');
 }
 
 function updateOpnameDiff(i) {
   const sistem  = DB.barang[i].stok || 0;
+  const minStok = DB.barang[i].minStok || 0;
   const aktual  = parseInt(document.getElementById(`op-act-${i}`)?.value)||0;
   const selisih = aktual - sistem;
   const el = document.getElementById(`op-diff-${i}`);
-  if (!el) return;
-  el.textContent = (selisih > 0 ? '+' : '') + selisih;
-  el.style.color = selisih < 0 ? 'var(--danger)' : selisih > 0 ? 'var(--accent2)' : 'var(--text-muted)';
+  if (el) {
+    el.textContent = (selisih > 0 ? '+' : '') + selisih;
+    el.style.color = selisih < 0 ? 'var(--danger)' : selisih > 0 ? 'var(--accent2)' : 'var(--text-muted)';
+  }
+  // Update status badge berdasarkan stok aktual vs minStok
+  const statusEl = document.getElementById(`op-status-${i}`);
+  if (statusEl) {
+    const isCritical = aktual <= minStok;
+    statusEl.innerHTML = `<span class="badge ${isCritical?'badge-red':'badge-green'}">${isCritical?'⚠️ Kritis':'✅ Aman'}</span>`;
+  }
 }
 
-async function generateOpname() {
+async function simpanOpnameBaris(i) {
+  const b      = DB.barang[i];
+  const aktual = parseInt(document.getElementById(`op-act-${i}`)?.value)||b.stok;
+  const note   = document.getElementById(`op-note-${i}`)?.value||'';
+  const old    = b.stok;
+  b.stok = aktual;
+  if (window.FIREBASE_READY && b._id) {
+    try { await window.FS.updateDoc(window.FS.docRef('barang', b._id), { stok: aktual }); }
+    catch(e) { console.warn('Firebase update gagal:', e); }
+  }
+  addLog('stok', `Opname: ${b.nama} — ${old} → ${aktual}${note?' ('+note+')':''}`);
+  const inp = document.getElementById(`op-act-${i}`);
+  if (inp) inp.style.border = '1.5px solid var(--accent2)';
+  showToast(`✅ ${b.nama} tersimpan: stok ${aktual}`);
+}
+
+async function simpanSemuaOpname() {
+  if (!DB.barang.length) { showToast('Tidak ada barang untuk disimpan','warning'); return; }
+  let saved = 0;
+  for (let i = 0; i < DB.barang.length; i++) {
+    const b      = DB.barang[i];
+    const aktual = parseInt(document.getElementById(`op-act-${i}`)?.value)||b.stok;
+    const note   = document.getElementById(`op-note-${i}`)?.value||'';
+    b.stok = aktual;
+    if (window.FIREBASE_READY && b._id) {
+      try { await window.FS.updateDoc(window.FS.docRef('barang', b._id), { stok: aktual }); } catch(e) {}
+    }
+    saved++;
+  }
+  addLog('stok', `Stock Opname selesai — ${saved} barang diperbarui`);
+  showToast(`✅ Semua stok tersimpan (${saved} barang diperbarui)!`);
+  renderOpname();
+  updateRunningText();
+} {
   const rows = DB.barang.map((b,i) => {
     const aktual = parseInt(document.getElementById(`op-act-${i}`)?.value)||b.stok;
     const note   = document.getElementById(`op-note-${i}`)?.value||'';
@@ -1704,14 +1748,15 @@ function renderChatMessages() {
   if (!body) return;
   const messages = DB.chat.length ? DB.chat : chatMessages;
   const myUid = window.FA?.currentUser()?.uid;
+  const myName = currentUser?.name || '';
   body.innerHTML = messages.map(m => {
-    const isMine = m.uid === myUid || m.mine;
-    return `<div class="msg ${isMine?'mine':'other'}">
-      <div class="msg-avatar">${m.avatar||m.sender?.[0]||'?'}</div>
-      <div>
-        ${!isMine?`<div style="font-size:11px;color:var(--text-muted);margin-bottom:3px;font-weight:600">${m.sender}</div>`:''}
-        <div class="msg-bubble">${m.text}</div>
-        <span class="msg-time">${m.time||''}</span>
+    const isMine = m.uid === myUid || m.mine || m.sender === myName;
+    return `<div class="msg ${isMine?'mine':'other'}" style="display:flex;flex-direction:${isMine?'row-reverse':'row'};align-items:flex-end;gap:8px;margin-bottom:14px">
+      <div class="msg-avatar" style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:${isMine?'var(--primary)':'var(--accent2)'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff">${m.avatar||m.sender?.[0]||'?'}</div>
+      <div style="max-width:72%;display:flex;flex-direction:column;align-items:${isMine?'flex-end':'flex-start'}">
+        ${!isMine?`<div style="font-size:11px;color:var(--text-muted);margin-bottom:3px;font-weight:600;padding:0 4px">${m.sender}</div>`:''}
+        <div class="msg-bubble" style="background:${isMine?'var(--primary)':'rgba(255,255,255,0.08)'};color:${isMine?'#fff':'var(--text)'};border-radius:${isMine?'18px 18px 4px 18px':'18px 18px 18px 4px'};padding:10px 14px;font-size:13px;line-height:1.5;word-break:break-word">${m.text}</div>
+        <span class="msg-time" style="font-size:10px;color:var(--text-muted);margin-top:3px;padding:0 4px">${m.time||''}</span>
       </div>
     </div>`;
   }).join('');

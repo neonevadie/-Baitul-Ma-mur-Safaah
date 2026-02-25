@@ -1,16 +1,19 @@
-/* ================================================================
-   BMS — Firebase Configuration & Firestore API
-   CV. Baitul Ma'mur Syafaah | firebase.js
-   Project: bms-syafaah
-   ================================================================ */
+// ================================================================
+//   BMS — firebase.js  v3.0
+//   Firebase Firestore + Firebase Authentication
+//   Kredensial TIDAK disimpan di sini — dikelola via Firebase Console
+// ================================================================
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
-  getFirestore,
-  collection, addDoc, getDocs, onSnapshot,
-  doc, updateDoc, deleteDoc,
-  query, orderBy, serverTimestamp, limit
+  getFirestore, collection, addDoc, getDocs, onSnapshot,
+  doc, setDoc, getDoc, updateDoc, deleteDoc,
+  query, orderBy, serverTimestamp, where, limit, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import {
+  getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
+  createUserWithEmailAndPassword
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey           : "AIzaSyDFwMLJTDqpbODBkL3rice1cYlQq0lIFSs",
@@ -18,63 +21,53 @@ const firebaseConfig = {
   projectId        : "bms-syafaah",
   storageBucket    : "bms-syafaah.firebasestorage.app",
   messagingSenderId: "247629123246",
-  appId            : "1:247629123246:web:5249353551c37fbd95e73f"
+  appId            : "1:247629123246:web:5249353551c37fbd95e73f",
+  measurementId    : "G-8ZK1CZ6E0X"
 };
 
-function setDOMStatus(state) {
-  const el  = document.getElementById('fb-status');
-  const txt = document.getElementById('fb-status-text');
-  if (!el || !txt) return;
-  if (state === 'online') {
-    el.className = 'firebase-status online';
-    txt.textContent = '☁️ Firebase terhubung — data tersinkron ke cloud';
-  } else {
-    el.className = 'firebase-status offline';
-    txt.textContent = '⚠️ Tidak terhubung — cek koneksi internet';
-  }
-}
+const app  = initializeApp(firebaseConfig);
+const db   = getFirestore(app);
+const auth = getAuth(app);
 
-try {
-  const app = initializeApp(firebaseConfig);
-  const db  = getFirestore(app);
+window.FS = {
+  db,
+  col       : (path)       => collection(db, path),
+  docRef    : (path, id)   => doc(db, path, id),
+  addDoc    : (col, data)  => addDoc(col,  { ...data, _ts: serverTimestamp() }),
+  setDoc    : (ref, data)  => setDoc(ref,  { ...data, _ts: serverTimestamp() }),
+  getDoc    : (ref)        => getDoc(ref),
+  getDocs   : (q)          => getDocs(q),
+  updateDoc : (ref, data)  => updateDoc(ref, { ...data, _ts: serverTimestamp() }),
+  deleteDoc : (ref)        => deleteDoc(ref),
+  onSnapshot: (q, cb)      => onSnapshot(q, cb),
+  query     : (...args)    => query(...args),
+  orderBy   : (f, d)       => orderBy(f, d),
+  where     : (f, op, v)   => where(f, op, v),
+  limit     : (n)          => limit(n),
+  ts        : ()           => serverTimestamp(),
+  batch     : ()           => writeBatch(db),
+};
 
-  // ── Expose ke window ────────────────────────────────────────
-  window.FS = {
-    db,
-    col      : (p)       => collection(db, p),
-    docRef   : (p, id)   => doc(db, p, id),
-    addDoc   : (c, data) => addDoc(c, { ...data, _ts: serverTimestamp() }),
-    getDocs  : (q)       => getDocs(q),
-    updateDoc: (r, data) => updateDoc(r, { ...data, _ts: serverTimestamp() }),
-    deleteDoc: (r)       => deleteDoc(r),
-    onSnapshot:(q, cb)   => onSnapshot(q, cb),
-    query    : (...a)    => query(...a),
-    orderBy  : (f, d)    => orderBy(f, d),
-    limit    : (n)       => limit(n),
-    ts       : ()        => serverTimestamp(),
-  };
+window.FA = {
+  auth,
+  currentUser : () => auth.currentUser,
+  signIn      : (email, pw) => signInWithEmailAndPassword(auth, email, pw),
+  signOut     : () => signOut(auth),
+  onAuth      : (cb) => onAuthStateChanged(auth, cb),
+  // Buat user baru tanpa logout user aktif (pakai secondary app)
+  createUser  : async (email, pw) => {
+    const key = `bms_tmp_${Date.now()}`;
+    const app2 = initializeApp(firebaseConfig, key);
+    const auth2 = getAuth(app2);
+    try {
+      const cred = await createUserWithEmailAndPassword(auth2, email, pw);
+      const uid  = cred.user.uid;
+      await signOut(auth2);
+      await deleteApp(app2);
+      return uid;
+    } catch(e) { await deleteApp(app2).catch(()=>{}); throw e; }
+  },
+};
 
-  // ── Flag global ──────────────────────────────────────────────
-  window.FIREBASE_READY = true;
-
-  // ── Update DOM langsung dari sini (module bisa akses DOM) ────
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => setDOMStatus('online'));
-  } else {
-    setDOMStatus('online');
-  }
-
-  // ── Dispatch event untuk app.js ──────────────────────────────
-  window.dispatchEvent(new CustomEvent('firebase-ready'));
-  console.log('✅ Firebase Firestore terhubung — project: bms-syafaah');
-
-} catch(err) {
-  console.error('❌ Firebase gagal:', err);
-  window.FIREBASE_READY = false;
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => setDOMStatus('offline'));
-  } else {
-    setDOMStatus('offline');
-  }
-  window.dispatchEvent(new CustomEvent('firebase-failed'));
-}
+window.FIREBASE_READY = true;
+console.log("✅ Firebase v3.0 — Auth + Firestore aktif");

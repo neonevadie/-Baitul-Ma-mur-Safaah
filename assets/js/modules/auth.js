@@ -60,16 +60,8 @@ function _defaultConfig() {
 export async function doLogin() {
   const password = document.getElementById('login-pass')?.value.trim();
   if (!password) { showToast('Password wajib diisi!', 'error'); return; }
-  let email = '';
-  if (state.selectedRole === 'sales') {
-    if (!state.selectedSalesId) { showToast('Pilih akun sales terlebih dahulu!', 'error'); return; }
-    const su = (state.appConfig?.salesUsers || []).find(s => s.id === state.selectedSalesId);
-    email = su?.email || '';
-  } else {
-    email = state.appConfig?.roleEmails?.[state.selectedRole] || `${state.selectedRole}@bms-syafaah.id`;
-  }
-  if (!email) { showToast('Konfigurasi email tidak ditemukan!', 'error'); return; }
-  // FIX Safari iOS: tunggu appConfig jika belum ready (ES Modules load lambat di Safari)
+
+  // FIX v11.2: Cek appConfig DULU sebelum digunakan (Safari iOS & perangkat lambat)
   if (!state.appConfig) {
     const btnWait = document.getElementById('btn-login');
     if (btnWait) btnWait.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memuat...';
@@ -81,6 +73,17 @@ export async function doLogin() {
       return;
     }
   }
+
+  // Tentukan email SETELAH appConfig dipastikan sudah tersedia
+  let email = '';
+  if (state.selectedRole === 'sales') {
+    if (!state.selectedSalesId) { showToast('Pilih akun sales terlebih dahulu!', 'error'); return; }
+    const su = (state.appConfig?.salesUsers || []).find(s => s.id === state.selectedSalesId);
+    email = su?.email || '';
+  } else {
+    email = state.appConfig?.roleEmails?.[state.selectedRole] || `${state.selectedRole}@bms-syafaah.id`;
+  }
+  if (!email) { showToast('Konfigurasi email tidak ditemukan!', 'error'); return; }
 
   const btn = document.getElementById('btn-login');
   if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Masuk...';

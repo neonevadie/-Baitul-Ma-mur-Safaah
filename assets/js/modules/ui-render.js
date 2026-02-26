@@ -116,10 +116,14 @@ export function renderInvoice() {
 }
 
 export function renderInvoiceStats() {
+  // Normalisasi: pastikan total selalu Number (data lama Firestore bisa string)
+  const getTotal = i => Number(i.total) || 0;
+  // Status 'Tempo' adalah alias lama dari 'Belum Lunas' — tangani keduanya
+  const isBelumLunas = i => i.status !== 'Lunas';
   const total = DB.invoice.length;
-  const lunas = DB.invoice.filter(i=>i.status==='Lunas').reduce((s,i)=>s+(i.total||0),0);
-  const belum = DB.invoice.filter(i=>i.status!=='Lunas').reduce((s,i)=>s+(i.total||0),0);
-  const cash  = DB.invoice.filter(i=>i.metodeBayar==='Tunai'||i.metodeBayar==='Transfer').reduce((s,i)=>s+(i.total||0),0);
+  const lunas = DB.invoice.filter(i=>i.status==='Lunas').reduce((s,i)=>s+getTotal(i),0);
+  const belum = DB.invoice.filter(isBelumLunas).reduce((s,i)=>s+getTotal(i),0);
+  const cash  = DB.invoice.filter(i=>i.metodeBayar==='Tunai'||i.metodeBayar==='Transfer').reduce((s,i)=>s+getTotal(i),0);
   const safe  = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
   safe('trx-total-count', total);
   safe('trx-lunas',  fmtRp(lunas));
@@ -207,12 +211,16 @@ export function renderPembelian() {
 export function renderAssets() {
   const el = document.getElementById('asset-list');
   if (!el) return;
-  const totalStok    = DB.barang.reduce((s,b)=>s+(b.hbeli||0)*(b.stok||0),0);
-  const totalPiutang = DB.mitra.reduce((s,m)=>s+(m.piutang||0),0);
-  const totalBeli    = DB.pembelian.reduce((s,p)=>s+(p.total||0),0);
+  const totalStok    = DB.barang.reduce((s,b)=>s+(Number(b.hbeli)||0)*(Number(b.stok)||0),0);
+  // Piutang dihitung dari invoice belum lunas — source of truth, bukan mitra.piutang field
+  // yang mungkin tidak tersinkron dengan data historis
+  const totalPiutang = DB.invoice
+    .filter(i => i.status !== 'Lunas')
+    .reduce((s,i) => s + (Number(i.total)||0), 0);
+  const totalBeli    = DB.pembelian.reduce((s,p)=>s+(Number(p.total)||0),0);
   el.innerHTML = `
     <div class="pl-row"><strong>Nilai Stok Barang</strong><span>Rp ${totalStok.toLocaleString('id-ID')}</span></div>
-    <div class="pl-row"><strong>Total Piutang Mitra</strong><span style="color:var(--accent)">Rp ${totalPiutang.toLocaleString('id-ID')}</span></div>
+    <div class="pl-row"><strong>Total Piutang (Invoice Belum Lunas)</strong><span style="color:var(--accent)">Rp ${totalPiutang.toLocaleString('id-ID')}</span></div>
     <div class="pl-row"><strong>Total Pembelian</strong><span style="color:var(--danger)">Rp ${totalBeli.toLocaleString('id-ID')}</span></div>
     <div class="pl-row total"><strong>Total Aset Operasional</strong><strong>Rp ${(totalStok+totalPiutang).toLocaleString('id-ID')}</strong></div>`;
 }
@@ -316,7 +324,7 @@ export function renderLaporanPiutang() {
   const totEl = document.getElementById('lap-piutang-total');
   if (!tbody) return;
   const belum = DB.invoice.filter(i => i.status !== 'Lunas');
-  const total = belum.reduce((s,i)=>s+(i.total||0),0);
+  const total = belum.reduce((s,i)=>s+(Number(i.total)||0),0);
   if (totEl) totEl.textContent = 'Total Piutang: ' + fmtRp(total);
   if (!belum.length) {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px">✅ Semua invoice sudah lunas</td></tr>';
@@ -328,7 +336,7 @@ export function renderLaporanPiutang() {
     return `<tr>
       <td><strong>${inv.no}</strong></td><td>${inv.mitra}</td><td>${inv.tgl}</td>
       <td style="color:${over?'var(--danger)':'inherit'}">${inv.tempo!=='-'?inv.tempo:'-'}${over?' ⚠️':''}</td>
-      <td style="color:var(--danger);font-weight:700">${fmtRp(inv.total||0)}</td>
+      <td style="color:var(--danger);font-weight:700">${fmtRp(Number(inv.total)||0)}</td>
       <td>${inv.salesName||'-'}</td>
     </tr>`;
   }).join('');
@@ -504,9 +512,9 @@ export function renderDashboardStats() {
       </div>`).join('') || '<div style="padding:16px;text-align:center;color:var(--text-muted)">✅ Semua invoice lunas</div>';
   }
   renderDistribusiStok('distribusi-stok'); renderDistribusiStok('laporan-distribusi');
-  const tPng = DB.pengeluaran.reduce((s,p)=>s+(p.jml||0),0);
-  const tBeli= DB.pembelian.reduce((s,p)=>s+(p.total||0),0);
-  const tPend= DB.invoice.filter(i=>i.status==='Lunas').reduce((s,i)=>s+(i.total||0),0);
+  const tPng = DB.pengeluaran.reduce((s,p)=>s+(Number(p.jml)||0),0);
+  const tBeli= DB.pembelian.reduce((s,p)=>s+(Number(p.total)||0),0);
+  const tPend= DB.invoice.filter(i=>i.status==='Lunas').reduce((s,i)=>s+(Number(i.total)||0),0);
   const laba = tPend - tPng - tBeli;
   const ks   = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=fmtRp(v); };
   ks('keu-total-pengeluaran',tPng); ks('keu-total-pembelian',tBeli);

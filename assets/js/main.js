@@ -171,7 +171,7 @@ window._onNavigate = (id) => {
     invoice    : () => { renderInvoice(); renderInvoiceStats(); },
     stok       : renderStok,
     mitra      : renderMitra,
-    keuangan   : () => { renderAssets(); renderPengeluaran(); renderPembelian(); },
+    keuangan   : () => { renderAssets(); renderPengeluaran(); renderPembelian(); renderInvoiceStats(); },
     laporan    : () => { buildLaporanChart(); renderDashboardStats(); },
     sales_dash : buildSalesDashboard,
     opname     : renderOpname,

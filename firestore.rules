@@ -1,7 +1,9 @@
 rules_version = '2';
 // ================================================================
-//  BMS — Firestore Security Rules  v2.1
+//  BMS — Firestore Security Rules  v2.2
 //  CV. Baitul Ma'mur Syafaah
+//  FIX v2.2: /test/appConfig bisa dibaca SEBELUM login
+//            (diperlukan untuk load daftar sales di halaman login)
 // ================================================================
 
 service cloud.firestore {
@@ -36,7 +38,6 @@ service cloud.firestore {
     }
 
     // ── /users ───────────────────────────────────────────────────
-    // FIX v2.1: owner bisa buat/update profil user manapun (untuk tambah sales)
     match /users/{uid} {
       allow read:   if isSignedIn() && (request.auth.uid == uid || isOwner());
       allow create: if isSignedIn() && (request.auth.uid == uid || isOwner());
@@ -44,10 +45,16 @@ service cloud.firestore {
       allow delete: if isOwner();
     }
 
-    // ── /test (appConfig + online status) ───────────────────────
+    // ── /test ────────────────────────────────────────────────────
+    // FIX v2.2: appConfig dibaca SEBELUM login (untuk tampilkan daftar sales)
     match /test/{docId} {
-      allow read:  if isAnyValidRole();
+      // appConfig: public read (tidak butuh login) — hanya berisi nama sales & config tampilan
+      allow read:  if docId == 'appConfig';
+      // online status: read hanya yang sudah login
+      allow read:  if isAnyValidRole() && docId != 'appConfig';
+      // appConfig: hanya owner & admin yang boleh tulis
       allow write: if isOwnerOrAdmin() && docId == 'appConfig';
+      // online status: setiap user tulis status dirinya sendiri
       allow write: if isAnyValidRole() && docId == ('online_' + request.auth.uid);
     }
 
@@ -135,7 +142,6 @@ service cloud.firestore {
       allow read:   if isAnyValidRole();
       allow create: if isAnyValidRole();
       allow update: if false;
-      // FIX v2.1: owner & admin bisa hapus chat (untuk kosongkan live chat)
       allow delete: if isOwnerOrAdmin();
     }
 
@@ -148,7 +154,7 @@ service cloud.firestore {
       allow delete: if isOwnerOrAdmin();
     }
 
-    // ── Fallback: tolak semua yang tidak cocok ──────────────────
+    // ── Fallback ─────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
     }

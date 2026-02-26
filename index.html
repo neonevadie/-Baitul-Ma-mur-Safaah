@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <base href="/-Baitul-Ma-mur-Safaah/">  <!-- ← SEKARANG STRIPNYA SUDAH ADA -->
+    <!-- base href dihapus — path GitHub Pages tidak kompatibel dengan akses lokal/perangkat lain -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="BMS - Sistem Manajemen Bisnis CV. Baitul Ma’mur Syafaah">
     <meta name="theme-color" content="#f27474">
@@ -1650,7 +1650,7 @@
 // ── Service Worker Registration ──────────────────────────────────
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw-v11.3.js')  // ← GANTI NAMA
+    navigator.serviceWorker.register('./sw.js')
       .then(reg => console.log('[BMS] SW registered:', reg.scope))
       .catch(err => console.warn('[BMS] SW registration failed:', err));
   });

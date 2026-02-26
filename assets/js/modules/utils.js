@@ -93,7 +93,6 @@ export async function addLog(aksi, detail) {
   try {
     await addDoc(col('log'), data);
   } catch(e) {
-    // Upgrade 7.3: error handling informatif
     DB.log.unshift({ ...data, _id: Date.now().toString() });
     if (e.code === 'permission-denied') {
       console.warn('Log gagal — permission denied. Pastikan Firestore Rules v2.1 aktif.');
@@ -131,7 +130,6 @@ export function saveKategoriList(list) {
   localStorage.setItem('bms_kategori', JSON.stringify(list));
   if (state.appConfig) {
     state.appConfig.kategori = list;
-    // Sinkronisasi ke Firestore dilakukan oleh saveCompanyProfile
   }
 }
 
@@ -228,11 +226,13 @@ export function hapusKategori(i) {
   showToast('🗑️ Kategori dihapus!');
 }
 
-// ── Browser Notification ──────────────────────────────────────────
-let _notifPermission = Notification?.permission || 'default';
+// ── Browser Notification — FIX Safari iOS ────────────────────────
+// Safari iOS tidak support Notification API → cek dulu sebelum akses
+const _hasNotif = typeof Notification !== 'undefined';
+let _notifPermission = _hasNotif ? (Notification.permission || 'default') : 'denied';
 
 export async function requestNotifPermission() {
-  if (!('Notification' in window)) return false;
+  if (!_hasNotif || !('Notification' in window)) return false;
   if (_notifPermission === 'granted') return true;
   try {
     const result = await Notification.requestPermission();
@@ -246,7 +246,7 @@ export async function requestNotifPermission() {
 }
 
 export function showBrowserNotif(title, body, type, urgent = false) {
-  if (!('Notification' in window) || _notifPermission !== 'granted') return;
+  if (!_hasNotif || !('Notification' in window) || _notifPermission !== 'granted') return;
   const opts = { body, icon: 'assets/img/logo.png', badge: 'assets/img/logo.png', tag: 'bms-' + (type||'info') + '-' + Date.now(), requireInteraction: urgent, silent: !urgent };
   if (navigator.serviceWorker?.ready) {
     navigator.serviceWorker.ready.then(reg => reg.showNotification(title, opts)).catch(() => { try { new Notification(title, opts); } catch(e){} });
@@ -254,7 +254,7 @@ export function showBrowserNotif(title, body, type, urgent = false) {
 }
 
 export function checkAndPushBrowserNotif() {
-  if (_notifPermission !== 'granted') return;
+  if (!_hasNotif || _notifPermission !== 'granted') return;
   const today = new Date().toISOString().slice(0, 10);
   DB.barang.filter(b => b.stok <= b.minStok && b.stok > 0).forEach(b => {
     const key = 'notif_stok_' + b.kode + '_' + today;
@@ -273,7 +273,7 @@ export function checkAndPushBrowserNotif() {
 export function renderNotifPermissionBtn() {
   const el = document.getElementById('notif-permission-btn');
   if (!el) return;
-  if (!('Notification' in window)) { el.style.display = 'none'; return; }
+  if (!_hasNotif || !('Notification' in window)) { el.style.display = 'none'; return; }
   if (_notifPermission === 'granted') {
     el.innerHTML = '<i class="fas fa-bell"></i> Notifikasi Browser Aktif';
     el.style.opacity = '0.55'; el.style.cursor = 'default'; el.onclick = null;

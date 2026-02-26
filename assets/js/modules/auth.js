@@ -39,7 +39,7 @@ export async function loadAppConfig() {
     console.warn('appConfig load error:', e.message);
     if (!state.appConfig) state.appConfig = _defaultConfig();
     renderSalesDropdown();
-    if (e.code === 'permission-denied') updateFBStatus('rules');
+    if (e.code === 'permission-denied') { state._rulesError = true; updateFBStatus('rules'); }
     else updateFBStatus('offline');
   }
 }
@@ -47,13 +47,11 @@ export async function loadAppConfig() {
 function _defaultConfig() {
   return {
     roleEmails: { owner:'owner@bms-syafaah.id', admin:'admin@bms-syafaah.id' },
-    salesUsers: [
-      { id:'s1', name:'Sales Budi',  email:'sales1@bms-syafaah.id', avatar:'B' },
-      { id:'s2', name:'Sales Andi',  email:'sales2@bms-syafaah.id', avatar:'A' },
-      { id:'s3', name:'Sales Citra', email:'sales3@bms-syafaah.id', avatar:'C' },
-    ],
+    salesUsers: [], // Kosong — Owner tambah manual via halaman Pengaturan
     company: { nama:"CV. Baitul Ma'mur Syafaah", alamat:'Ruko Villa Bogor Indah 5, Bogor', telp:'(0251) 8xxx-xxxx', email:'info@bms-syafaah.id', npwp:'xx.xxx', rekening:'BCA 123-456-7890' },
     bonusRate: 2,
+    ppnRate: 11,
+    ppnAktif: true,
   };
 }
 

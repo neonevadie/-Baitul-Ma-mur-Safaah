@@ -434,6 +434,9 @@ export function renderSettings() {
   const cbPpn = document.getElementById('set-ppn-aktif');
   if (cbPpn) cbPpn.checked = state.appConfig?.ppnAktif !== false;
   if (state.appConfig?.kategori?.length) localStorage.setItem('bms_kategori', JSON.stringify(state.appConfig.kategori));
+  // Tampilkan warning jika appConfig tidak berhasil dimuat dari Firestore (Rules belum aktif)
+  const warn = document.getElementById('rules-warning-panel');
+  if (warn) warn.style.display = state._rulesError ? '' : 'none';
   renderKategoriSettings();
   renderUsersList();
 }

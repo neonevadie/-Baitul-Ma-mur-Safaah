@@ -795,21 +795,58 @@ export async function tambahUserSales() {
   const email = document.getElementById('new-sales-email')?.value.trim();
   const pass  = document.getElementById('new-sales-pass')?.value.trim();
   if (!name || !email || !pass) { showToast('Lengkapi semua field!', 'error'); return; }
+  if (pass.length < 6) { showToast('❌ Password minimal 6 karakter!', 'error'); return; }
+
+  // Cek duplikat email di salesUsers lokal terlebih dahulu
+  const existing = (state.appConfig?.salesUsers || []).find(s => s.email.toLowerCase() === email.toLowerCase());
+  if (existing) {
+    showToast(`❌ Email "${email}" sudah terdaftar sebagai akun sales "${existing.name}"!`, 'error');
+    return;
+  }
+  // Cek konflik dengan email owner/admin
+  const re = state.appConfig?.roleEmails || {};
+  if (email.toLowerCase() === (re.owner||'').toLowerCase() || email.toLowerCase() === (re.admin||'').toLowerCase()) {
+    showToast('❌ Email ini sudah dipakai untuk akun Owner/Admin!', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btn-tambah-sales');
+  if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Membuat akun...'; btn.disabled = true; }
   try {
-    showToast('⏳ Membuat akun...', 'info');
+    showToast('⏳ Membuat akun Firebase Auth...', 'info');
     const uid = await createUser(email, pass);
     if (!state.appConfig) state.appConfig = {};
     if (!state.appConfig.salesUsers) state.appConfig.salesUsers = [];
     const id = 's' + Date.now();
-    state.appConfig.salesUsers.push({ id, name, email, avatar: name[0].toUpperCase() });
+    const newSales = { id, name, email, avatar: name[0].toUpperCase(), uid };
+    state.appConfig.salesUsers.push(newSales);
+    // Simpan profil user ke koleksi /users/{uid}
+    await fb.setDoc(fb.docRef('users', uid), {
+      role: 'sales', name, avatar: name[0].toUpperCase(),
+      label: 'Tim Sales', email,
+      menus: ['dashboard','invoice','stok','mitra','sales_dash','surat_jalan','tutorial'],
+      uid
+    });
     await fb.setDoc(fb.docRef('test', 'appConfig'), state.appConfig);
     const { renderUsersList } = await import('./ui-render.js');
     const { renderSalesDropdown } = await import('./ui-helpers.js');
     renderUsersList(); renderSalesDropdown();
-    ['new-sales-name','new-sales-email','new-sales-pass'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['new-sales-name','new-sales-email','new-sales-pass'].forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
     showToast('✅ Akun sales ' + name + ' berhasil dibuat!');
-    addLog('setting', 'Tambah akun sales: ' + name);
-  } catch(e) { showToast('❌ Gagal buat akun: ' + e.message, 'error'); }
+    addLog('setting', 'Tambah akun sales: ' + name + ' (' + email + ')');
+  } catch(e) {
+    // Pesan error yang lebih informatif per kode error Firebase Auth
+    const msgs = {
+      'auth/email-already-in-use' : `❌ Email "${email}" sudah terdaftar di Firebase. Gunakan email lain atau hapus akun lama terlebih dahulu di Firebase Console → Authentication.`,
+      'auth/invalid-email'        : '❌ Format email tidak valid.',
+      'auth/weak-password'        : '❌ Password terlalu lemah (minimal 6 karakter).',
+      'auth/operation-not-allowed': '❌ Pembuatan akun dinonaktifkan. Aktifkan Email/Password di Firebase Console → Authentication → Sign-in Method.',
+      'permission-denied'         : '❌ Akses ditolak Firestore. Pastikan Firestore Security Rules v2.1 sudah di-deploy!',
+    };
+    showToast(msgs[e.code] || ('❌ Gagal buat akun: ' + e.message), 'error');
+  } finally {
+    if (btn) { btn.innerHTML = '<i class="fas fa-user-plus"></i> Buat Akun Sales'; btn.disabled = false; }
+  }
 }
 
 export async function hapusUserSales(i) {

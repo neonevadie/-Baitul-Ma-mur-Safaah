@@ -73,6 +73,8 @@ export const state = {
   _lastChatCount : 0,
   // Staged foto files untuk upload ke Storage (sebelum simpan)
   _stagedFotoFiles: [],
+  // Flag: true jika Firestore Rules belum di-deploy (permission-denied saat load appConfig)
+  _rulesError    : false,
 };
 
 // ── Pagination State ──────────────────────────────────────────────

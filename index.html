@@ -676,13 +676,19 @@
           <div class="card-body">
             <div id="settings-users-list" style="margin-bottom:20px"></div>
             <hr style="border-color:var(--border);margin-bottom:20px">
+            <!-- Warning jika Firestore Rules belum di-deploy -->
+            <div id="rules-warning-panel" style="display:none;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);border-radius:12px;padding:14px 18px;margin-bottom:16px">
+              <p style="font-weight:700;color:var(--danger);margin-bottom:6px">⚠️ Firestore Security Rules Belum Aktif!</p>
+              <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px">Fungsi tambah akun sales memerlukan Rules v2.1 sudah di-deploy. Buka <strong>Firebase Console → Firestore → Rules</strong> dan paste isi file <code>firestore.rules</code>.</p>
+              <a href="https://console.firebase.google.com/project/bms-syafaah/firestore/rules" target="_blank" class="btn btn-danger btn-sm"><i class="fas fa-external-link-alt"></i> Buka Firebase Console</a>
+            </div>
             <h4 style="font-size:13px;font-weight:700;margin-bottom:12px">➕ Tambah Akun Sales Baru</h4>
             <div class="form-row cols-3">
               <div class="field"><label>Nama Sales</label><input type="text" id="new-sales-name" placeholder="Nama lengkap"></div>
               <div class="field"><label>Email (untuk login)</label><input type="email" id="new-sales-email" placeholder="sales@bms-syafaah.id"></div>
               <div class="field"><label>Password</label><input type="password" id="new-sales-pass" placeholder="Min. 6 karakter"></div>
             </div>
-            <button class="btn btn-success" onclick="tambahUserSales()"><i class="fas fa-user-plus"></i> Buat Akun Sales</button>
+            <button class="btn btn-success" id="btn-tambah-sales" onclick="tambahUserSales()"><i class="fas fa-user-plus"></i> Buat Akun Sales</button>
           </div>
         </div>
 

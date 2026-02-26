@@ -26,13 +26,13 @@ import {
   addLog, fmtRp, terbilang, isPageActive,
   setDefaultDates, fillDropdowns, updateRunningText,
   getPPNRate, getKategoriList, saveKategoriList,
-  renderKategoriSettings, tambahKategori, hapusKategori, updateKategoriDropdowns,
+  tambahKategori, hapusKategori, updateKategoriDropdowns,
   playChatNotifSound, renderNotifPermissionBtn, requestNotifPermission,
   showBrowserNotif, checkAndPushBrowserNotif, initSearch, updateDate
 } from './modules/utils.js';
 import {
   renderSalesDropdown, switchGuide, toggleNotif,
-  toggleChat, openChat, switchChatTab
+  toggleChat, switchChatTab
 } from './modules/ui-helpers.js';
 import {
   renderAll, renderAllFull, renderBarang, renderInvoice, renderStok,
@@ -82,7 +82,7 @@ Object.assign(window, {
   tambahKategori, hapusKategori, updateKategoriDropdowns,
   renderKategoriSettings: renderKatSet,
   // UI Helpers
-  renderSalesDropdown, switchGuide, toggleNotif, toggleChat, openChat, switchChatTab,
+  renderSalesDropdown, switchGuide, toggleNotif, toggleChat, switchChatTab,
   requestNotifPermission, renderNotifPermissionBtn, checkAndPushBrowserNotif,
   // UI Render
   renderAll, renderAllFull, renderBarang, renderInvoice, renderStok, renderMitra,
@@ -218,6 +218,12 @@ document.addEventListener('click', e => {
     } catch(e) {
       showToast('❌ Gagal update transaksi: ' + e.message, 'error');
     }
+  };
+
+  // FIX BUG 2: _initData harus di-assign agar data Firestore diload setelah login
+  window._initData = () => {
+    loadAllFromFirestore();
+    setupRealtimeListeners();
   };
 
   console.log('✅ BMS v11.0 — ES Modules aktif');

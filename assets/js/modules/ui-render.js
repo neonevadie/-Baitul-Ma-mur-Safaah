@@ -703,3 +703,7 @@ export function showInvoicePreview(i) {
     <div class="invoice-sign-area"><div class="sign-box"><span class="sign-line"></span><strong>Disiapkan Oleh</strong><p>${inv.salesName||'Sales / Admin'}</p></div><div class="sign-box"><span class="sign-line"></span><strong>Diterima Oleh</strong><p>( Pelanggan )</p></div><div class="sign-box"><span class="sign-line"></span><strong>Mengetahui</strong><p>( Pimpinan )</p></div></div>`;
   import('./utils.js').then(({ openModal }) => openModal('modal-preview-inv'));
 }
+
+// ── filterTrenStok alias ──────────────────────────────────────────
+// Dipanggil oleh onchange di <select id="tren-stok-filter">
+export function filterTrenStok() { renderTrenStok(); }

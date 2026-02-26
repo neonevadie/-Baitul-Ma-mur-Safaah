@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BMS Path Debug</title>
+<style>
+body { font-family: monospace; background: #0f172a; color: #e2e8f0; padding: 16px; font-size: 13px; }
+h2 { color: #0d9488; }
+.ok { color: #10b981; } .err { color: #ef4444; } .warn { color: #f59e0b; } .info { color: #60a5fa; }
+pre { background: #1e293b; padding: 12px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+</style>
+</head>
+<body>
+<h2>🔍 BMS Path Finder</h2>
+<pre id="log">Loading...</pre>
+<script>
+const log = document.getElementById('log');
+function add(msg, cls='') {
+  const d = document.createElement('div');
+  d.className = cls; d.textContent = msg;
+  log.appendChild(d);
+}
+
+async function tryFetch(path) {
+  try {
+    const r = await fetch(path + '?t=' + Date.now(), {cache:'no-store'});
+    add(`${r.status === 200 ? '✅' : '❌'} ${r.status} — ${path}`, r.status===200?'ok':'err');
+    return r.status === 200;
+  } catch(e) {
+    add(`❌ ERROR — ${path}: ${e.message}`, 'err');
+    return false;
+  }
+}
+
+async function run() {
+  log.innerHTML = '';
+  add('=== CEK SEMUA KEMUNGKINAN PATH ===', 'info');
+  add(`Base URL: ${location.origin}${location.pathname}`, 'info');
+  add('');
+
+  // Cek struktur folder di GitHub
+  const paths = [
+    // Path yang seharusnya ada (ES Modules)
+    'assets/js/modules/auth.js',
+    'assets/js/modules/main.js',
+    'assets/js/main.js',
+    'sw.js',
+    // Path lama (sebelum refaktor)  
+    'assets/js/js/auth.js',
+    'assets/js/app.js',
+    // Index
+    'index.html',
+    'debug.html',
+    // Cek apakah ada subfolder
+    'bms/assets/js/modules/auth.js',
+    'bms - Copy/assets/js/modules/auth.js',
+  ];
+
+  add('--- File yang ada di GitHub Pages: ---', 'info');
+  for (const p of paths) await tryFetch(p);
+
+  add('');
+  add('--- Info Perangkat: ---', 'info');
+  add(`Browser: ${navigator.userAgent.includes('iPhone') ? 'iPhone Safari' : navigator.userAgent.includes('Chrome') ? 'Chrome' : 'Other'}`);
+  add(`SW Support: ${'serviceWorker' in navigator ? 'YA' : 'TIDAK (Safari iPhone tidak support SW)'}`);
+  add(`URL: ${location.href}`);
+}
+
+run();
+</script>
+</body>
+</html>

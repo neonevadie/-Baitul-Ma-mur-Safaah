@@ -4,7 +4,7 @@
 //  CV. Baitul Ma'mur Syafaah · 2026
 // ================================================================
 
-const CACHE_NAME   = 'bms-cache-v11';
+const CACHE_NAME   = 'bms-cache-v11.1';
 const OFFLINE_URL  = '/index.html';
 
 // Aset yang di-cache saat install — v11.0 ES Modules
@@ -60,13 +60,17 @@ self.addEventListener('fetch', (event) => {
       event.request.url.includes('identitytoolkit.googleapis.com') ||
       event.request.url.includes('googleapis.com')) return;
 
+  // FIX v1.1: Abaikan URL non-http (chrome-extension, dll.)
+  const url = event.request.url;
+  if (!url.startsWith('http')) return;
+
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        // Cache response baru
+        // Cache response baru — hanya URL http/https
         if (response && response.status === 200 && response.type !== 'opaque') {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone)).catch(()=>{});
         }
         return response;
       })

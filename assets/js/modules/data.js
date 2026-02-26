@@ -152,7 +152,7 @@ export async function loadAllFromFirestore() {
     const { renderAllFull } = await import('./ui-render.js');
     renderAllFull();
     if (e.code === 'permission-denied') {
-      showToast('❌ Akses ditolak Firestore — deploy Security Rules v2.1 di Firebase Console!', 'error');
+      showToast('❌ Akses ditolak Firestore — deploy Security Rules v2.2 di Firebase Console!', 'error');
     } else if (e.code === 'unavailable' || e.message?.includes('network')) {
       showToast('❌ Tidak ada koneksi internet — data lokal ditampilkan.', 'warning');
     } else {

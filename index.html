@@ -130,10 +130,18 @@
     </div>
 
     <!-- Sales user list -->
-    <div id="sales-list-panel">
-      <p style="color:rgba(255,255,255,0.5);font-size:11px;margin-bottom:8px;font-weight:700">PILIH AKUN SALES:</p>
-      <div id="sales-user-list" style="display:flex;flex-direction:column;gap:6px"></div>
-    </div>
+  <!-- Sales user list -->
+<div id="sales-list-panel">
+  <p style="color:rgba(255,255,255,0.5);font-size:11px;margin-bottom:8px;font-weight:700">PILIH AKUN SALES:</p>
+  <div id="sales-user-list" style="display:flex;flex-direction:column;gap:6px"></div>
+</div>
+
+<!-- Template untuk tombol sales (akan di-generate oleh JS) -->
+<template id="sales-user-template">
+  <button class="sales-user-btn" data-user-id="" onclick="selectSalesUser(this.dataset.userId, this.dataset.userName, this.dataset.userEmail)">
+    <!-- Nama sales akan diisi JS -->
+  </button>
+</template>
 
     <div class="firebase-status offline" id="fb-status">
       <div class="status-dot"></div>

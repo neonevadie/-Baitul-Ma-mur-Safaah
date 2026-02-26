@@ -216,8 +216,23 @@ export function selectRole(role) {
 
 export function selectSalesUser(id, name, email) {
   state.selectedSalesId = id;
-  document.querySelectorAll('.sales-user-btn').forEach(b=>b.classList.remove('active'));
-  event.target.classList.add('active');
+  
+  // Hapus class active dari semua tombol
+  document.querySelectorAll('.sales-user-btn').forEach(b => b.classList.remove('active'));
+  
+  // Cari tombol berdasarkan data-user-id (bukan event)
+  const selectedBtn = document.querySelector(`[data-user-id="${id}"]`);
+  if (selectedBtn) {
+    selectedBtn.classList.add('active');
+  } else {
+    // Fallback: cari berdasarkan teks (kalau onclick langsung)
+    document.querySelectorAll('.sales-user-btn').forEach(btn => {
+      if (btn.textContent.includes(name)) {
+        btn.classList.add('active');
+      }
+    });
+  }
+  
   const dp = document.getElementById('login-user-display');
   if (dp) dp.textContent = name;
 }

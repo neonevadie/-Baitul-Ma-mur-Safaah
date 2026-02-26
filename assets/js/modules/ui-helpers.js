@@ -1,67 +1,142 @@
 // ================================================================
-//  BMS — ui-helpers.js (ES Module)
-//  Helper UI kecil yang tidak masuk kategori render utama
+//  BMS — ui-helpers.js
+//  Helper functions: notifikasi, chat, guide, sales dropdown
+//  FIX: Null safety + sales dropdown dengan dataset
 // ================================================================
-import { state, DB } from './constants.js';
-import { showToast, addLog } from './utils.js';
 
+import { state } from './constants.js';
+
+// ── Render Sales Dropdown ────────────────────────────────────────
 export function renderSalesDropdown() {
-  const list = document.getElementById('sales-user-list');
-  if (!list || !state.appConfig) return;
-  list.innerHTML = (state.appConfig.salesUsers||[]).map(s =>
-    `<div class="sales-user-btn ${state.selectedSalesId===s.id?'active':''}"
-      onclick="selectSalesUser('${s.id}','${s.name}','${s.email}')">${s.avatar} ${s.name}</div>`
-  ).join('');
+  const container = document.getElementById('sales-user-list');
+  if (!container) {
+    console.warn('[UI] sales-user-list not found');
+    return;
+  }
+  
+  const salesUsers = state.appConfig?.salesUsers || [];
+  if (salesUsers.length === 0) {
+    container.innerHTML = '<p style="color:rgba(255,255,255,0.5);font-size:12px;padding:8px">Belum ada akun sales. Tambah di menu Pengaturan.</p>';
+    return;
+  }
+  
+  let html = '';
+  salesUsers.forEach(user => {
+    html += `
+      <button class="sales-user-btn ${state.selectedSalesId === user.id ? 'active' : ''}" 
+              data-user-id="${user.id}"
+              data-user-name="${user.name}"
+              data-user-email="${user.email}"
+              onclick="selectSalesUser('${user.id}', '${user.name}', '${user.email}')">
+        <i class="fas fa-user-tie" style="margin-right:8px"></i>
+        ${user.name}
+      </button>
+    `;
+  });
+  
+  container.innerHTML = html;
 }
 
-export function switchGuide(tab) {
-  document.querySelectorAll('.guide-panel').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.guide-tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById('guide-'+tab)?.classList.add('active');
-  const tabMap=['login','barang','transaksi','stok','keuangan','opname','pengaturan','tips'];
-  const tabs  = document.querySelectorAll('.guide-tab');
-  const idx   = tabMap.indexOf(tab);
-  if (tabs[idx]) tabs[idx].classList.add('active');
-}
-
+// ── Notifikasi ───────────────────────────────────────────────────
 export function toggleNotif() {
   const panel = document.getElementById('notif-panel');
-  panel.classList.toggle('open');
-  if (panel.classList.contains('open')) {
-    import('./ui-render.js').then(r => r.renderNotifications());
+  if (panel) {
+    panel.classList.toggle('open');
+  } else {
+    console.warn('[UI] notif-panel not found');
   }
 }
 
+export function renderNotifPermissionBtn() {
+  const btn = document.getElementById('notif-permission-btn');
+  if (!btn) return;
+  
+  if (!('Notification' in window)) {
+    btn.style.display = 'none';
+    return;
+  }
+  
+  if (Notification.permission === 'granted') {
+    btn.style.display = 'none';
+  } else {
+    btn.style.display = 'inline-flex';
+    btn.onclick = () => {
+      Notification.requestPermission().then(perm => {
+        if (perm === 'granted') btn.style.display = 'none';
+      });
+    };
+  }
+}
+
+// ── Chat ─────────────────────────────────────────────────────────
 export function toggleChat() {
-  state.chatOpen = !state.chatOpen;
-  document.getElementById('chat-window').classList.toggle('open', state.chatOpen);
-  document.getElementById('chat-fab')?.classList.toggle('chat-fab-active', state.chatOpen);
-  if (state.chatOpen) {
-    document.getElementById('chat-unread-badge').style.display = 'none';
-    document.getElementById('chat-input')?.focus();
+  const chatWindow = document.getElementById('chat-window');
+  if (chatWindow) {
+    chatWindow.classList.toggle('open');
+  } else {
+    console.warn('[UI] chat-window not found');
   }
 }
 
-export function switchChatTab(tab) {
-  state.activeChatTab = tab;
-  document.querySelectorAll('.chat-tab').forEach((t,i)=>t.classList.toggle('active',['messages','contacts','broadcast'][i]===tab));
-  document.getElementById('chat-messages').style.display        = tab==='messages'?'flex':'none';
-  document.getElementById('chat-contacts-panel').style.display  = tab==='contacts'?'block':'none';
-  document.getElementById('chat-broadcast-panel').style.display = tab==='broadcast'?'block':'none';
-  document.getElementById('chat-input-area').style.display      = tab==='messages'?'flex':'none';
+export function switchChatTab(tabName) {
+  const messagesPanel = document.getElementById('chat-messages');
+  const contactsPanel = document.getElementById('chat-contacts-panel');
+  const broadcastPanel = document.getElementById('chat-broadcast-panel');
+  const tabs = document.querySelectorAll('.chat-tab');
+  
+  // Update tab active
+  tabs.forEach(tab => {
+    const tabText = tab.textContent?.toLowerCase() || '';
+    if (tabText.includes(tabName)) {
+      tab.classList.add('active');
+    } else {
+      tab.classList.remove('active');
+    }
+  });
+  
+  // Show/hide panels with null check
+  if (messagesPanel) {
+    messagesPanel.style.display = tabName === 'messages' ? 'flex' : 'none';
+  }
+  if (contactsPanel) {
+    contactsPanel.style.display = tabName === 'contacts' ? 'flex' : 'none';
+  }
+  if (broadcastPanel) {
+    broadcastPanel.style.display = tabName === 'broadcast' ? 'flex' : 'none';
+  }
 }
 
-export function resetPage(key) {
-  const { pagination } = state;
-  import('./constants.js').then(c => { if(c.pagination[key]) c.pagination[key].page=1; });
+// ── Panduan (Guide) ──────────────────────────────────────────────
+export function switchGuide(section) {
+  // Sembunyikan semua panel
+  document.querySelectorAll('.guide-panel').forEach(panel => {
+    panel.classList.remove('active');
+  });
+  
+  // Nonaktifkan semua tab
+  document.querySelectorAll('.guide-tab').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  
+  // Aktifkan panel dan tab yang dipilih
+  const panel = document.getElementById('guide-' + section);
+  if (panel) {
+    panel.classList.add('active');
+  }
+  
+  // Cari tab yang sesuai dan aktifkan
+  document.querySelectorAll('.guide-tab').forEach(tab => {
+    if (tab.textContent?.toLowerCase().includes(section)) {
+      tab.classList.add('active');
+    }
+  });
 }
 
-export function toggleTempoField(metode) {
-  const row = document.getElementById('tempo-row');
-  if (row) row.style.display = metode==='Tempo'?'flex':'none';
-}
-
-export function updateDate() {
-  const el = document.getElementById('topbar-date');
-  if (el) el.textContent = new Date().toLocaleDateString('id-ID',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
-}
+// ── Export semua fungsi ke window ─────────────────────────────────
+Object.assign(window, {
+  toggleNotif,
+  toggleChat,
+  switchChatTab,
+  switchGuide,
+  renderNotifPermissionBtn
+});

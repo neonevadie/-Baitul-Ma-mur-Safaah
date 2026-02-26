@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="assets/css/style.css">
-<script type="module" src="assets/js/firebase.js"></script>
+<!-- BMS v11.0 — firebase.js diload via main.js (ES Module) -->
 <style>
 /* ── Pagination ─────────────────────────────────────────────── */
 .pagination-container { padding: 12px 20px 4px; }
@@ -1320,7 +1320,7 @@
           <label>Ringkasan</label>
           <div style="background:var(--bg);padding:12px;border-radius:10px;font-size:13px">
             <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Subtotal</span><span id="inv-subtotal">Rp 0</span></div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span id="inv-ppn-label">PPN 11%</span><span id="inv-ppn">Rp 0</span></div>
+            <div id="inv-ppn-row" style="display:flex;justify-content:space-between;margin-bottom:4px"><span id="inv-ppn-label">PPN 11%</span><span id="inv-ppn">Rp 0</span></div>
             <div style="display:flex;justify-content:space-between;font-weight:800;font-size:15px;border-top:2px solid var(--border);padding-top:8px"><span>TOTAL</span><span id="inv-total" style="color:var(--primary-light)">Rp 0</span></div>
           </div>
         </div>
@@ -1602,11 +1602,7 @@
   </div>
 </div>
 
-<!-- ================================================================
-     ES Modules Entry Point — BMS v11.0
-     main.js imports modules (phase 1-5) then app.js (phase 6-7).
-     firebase.js (above, line ~19) must load first — it sets window.FA/FS.
-================================================================ -->
+<!-- BMS v11.0: ES Modules entry point -->
 <script type="module" src="assets/js/main.js"></script>
 
 <!-- ===== PWA: Service Worker + Install Banner ===== -->

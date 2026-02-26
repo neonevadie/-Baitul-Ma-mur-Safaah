@@ -1,40 +1,24 @@
 // ================================================================
-//   BMS — firebase.js  v3.0
-//   Firebase Firestore + Firebase Authentication
-//   Kredensial TIDAK disimpan di sini — dikelola via Firebase Console
+//  BMS — firebase.js  v4.0 (ES Module)
+//  Firebase Firestore + Auth + Storage
+//  CV. Baitul Ma'mur Syafaah · Upgrade v11.0
 // ================================================================
 
 import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
-  getFirestore, collection, addDoc, getDocs, onSnapshot,
-  doc, setDoc, getDoc, updateDoc, deleteDoc,
-  query, orderBy, serverTimestamp, where, limit, writeBatch
+  getFirestore, collection, addDoc as _addDoc, getDocs, onSnapshot,
+  doc, setDoc as _setDoc, getDoc as _getDoc, updateDoc as _updateDoc,
+  deleteDoc, query, orderBy, serverTimestamp, where, limit, writeBatch, startAfter
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import {
+  getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
   createUserWithEmailAndPassword, EmailAuthProvider,
-  reauthenticateWithCredential, updatePassword
+  reauthenticateWithCredential, updatePassword as _updatePassword
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-// BUG #8 — KEAMANAN: Firebase config terekspos di source code.
-// Ini dapat diterima untuk Firebase karena keamanan dijaga oleh Security Rules,
-// BUKAN kerahasiaan API Key. Namun WAJIB melakukan langkah berikut:
-//
-//  ✅ 1. Firebase Console > Authentication > Settings > Authorized Domains
-//         → Tambahkan HANYA domain produksi Anda (hapus localhost jika sudah live)
-//
-//  ✅ 2. Firebase Console > Firestore > Rules → Pastikan rules seperti ini:
-//         rules_version = '2';
-//         service cloud.firestore {
-//           match /databases/{database}/documents {
-//             match /{document=**} {
-//               allow read, write: if request.auth != null;
-//             }
-//           }
-//         }
-//
-//  ✅ 3. (Opsional) Aktifkan Firebase App Check untuk proteksi berlapis.
-//
 const firebaseConfig = {
   apiKey           : "AIzaSyDFwMLJTDqpbODBkL3rice1cYlQq0lIFSs",
   authDomain       : "bms-syafaah.firebaseapp.com",
@@ -45,62 +29,81 @@ const firebaseConfig = {
   measurementId    : "G-8ZK1CZ6E0X"
 };
 
-const app  = initializeApp(firebaseConfig);
-const db   = getFirestore(app);
-const auth = getAuth(app);
+const app     = initializeApp(firebaseConfig);
+const db      = getFirestore(app);
+const auth    = getAuth(app);
+const storage = getStorage(app);
 
-window.FS = {
-  db,
-  col       : (path)       => collection(db, path),
-  docRef    : (path, id)   => doc(db, path, id),
-  addDoc    : (col, data)  => addDoc(col,  { ...data, _ts: serverTimestamp() }),
-  setDoc    : (ref, data)  => setDoc(ref,  { ...data, _ts: serverTimestamp() }),
-  getDoc    : (ref)        => getDoc(ref),
-  getDocs   : (q)          => getDocs(q),
-  updateDoc : (ref, data)  => updateDoc(ref, { ...data, _ts: serverTimestamp() }),
-  deleteDoc : (ref)        => deleteDoc(ref),
-  onSnapshot: (q, cb)      => onSnapshot(q, cb),
-  query     : (...args)    => query(...args),
-  orderBy   : (f, d)       => orderBy(f, d),
-  where     : (f, op, v)   => where(f, op, v),
-  limit     : (n)          => limit(n),
-  ts        : ()           => serverTimestamp(),
-  batch     : ()           => writeBatch(db),
+export const col     = (path)         => collection(db, path);
+export const docRef  = (path, id)     => doc(db, path, id);
+export const ts      = ()             => serverTimestamp();
+export const batch   = ()             => writeBatch(db);
+export const addDoc  = (c, data)      => _addDoc(c, { ...data, _ts: serverTimestamp() });
+export const setDoc  = (ref, data)    => _setDoc(ref, { ...data, _ts: serverTimestamp() });
+export const getDoc  = (ref)          => _getDoc(ref);
+export const updateDoc = (ref, data)  => _updateDoc(ref, { ...data, _ts: serverTimestamp() });
+export const deleteDoc_ = (ref)       => deleteDoc(ref);
+export const getDocs_   = (q)         => getDocs(q);
+export { query, orderBy, where, limit, startAfter, onSnapshot, writeBatch };
+
+// ── Firebase Storage — Upgrade 4.1: Migrasi Foto base64 → Cloud ──
+export async function uploadFoto(file, barangId) {
+  const ext  = file.type === 'image/png' ? 'png' : 'jpg';
+  const path = `barang/${barangId}/${Date.now()}.${ext}`;
+  const ref  = storageRef(storage, path);
+  await uploadBytes(ref, file);
+  return getDownloadURL(ref);
+}
+
+export async function uploadBase64ToStorage(base64, barangId) {
+  const res  = await fetch(base64);
+  const blob = await res.blob();
+  const ext  = blob.type === 'image/png' ? 'png' : 'jpg';
+  const path = `barang/${barangId}/migrated_${Date.now()}.${ext}`;
+  const ref  = storageRef(storage, path);
+  await uploadBytes(ref, blob);
+  return getDownloadURL(ref);
+}
+
+export async function deleteFotoFromStorage(url) {
+  try {
+    const ref = storageRef(storage, url);
+    await deleteObject(ref);
+  } catch(e) {
+    if (e.code !== 'storage/object-not-found') console.warn('deleteFoto:', e.message);
+  }
+}
+
+// ── Auth Helpers ──────────────────────────────────────────────────
+export const signIn         = (email, pw) => signInWithEmailAndPassword(auth, email, pw);
+export const doSignOut      = ()          => signOut(auth);
+export const onAuth         = (cb)        => onAuthStateChanged(auth, cb);
+export const currentFbUser  = ()          => auth.currentUser;
+
+export const createUser = async (email, pw) => {
+  const key   = `bms_tmp_${Date.now()}`;
+  const app2  = initializeApp(firebaseConfig, key);
+  const auth2 = getAuth(app2);
+  try {
+    const cred = await createUserWithEmailAndPassword(auth2, email, pw);
+    const uid  = cred.user.uid;
+    await signOut(auth2);
+    await deleteApp(app2);
+    return uid;
+  } catch(e) { await deleteApp(app2).catch(() => {}); throw e; }
 };
 
-window.FA = {
-  auth,
-  currentUser : () => auth.currentUser,
-  signIn      : (email, pw) => signInWithEmailAndPassword(auth, email, pw),
-  signOut     : () => signOut(auth),
-  onAuth      : (cb) => onAuthStateChanged(auth, cb),
-  // Buat user baru tanpa logout user aktif (pakai secondary app)
-  createUser  : async (email, pw) => {
-    const key = `bms_tmp_${Date.now()}`;
-    const app2 = initializeApp(firebaseConfig, key);
-    const auth2 = getAuth(app2);
-    try {
-      const cred = await createUserWithEmailAndPassword(auth2, email, pw);
-      const uid  = cred.user.uid;
-      await signOut(auth2);
-      await deleteApp(app2);
-      return uid;
-    } catch(e) { await deleteApp(app2).catch(()=>{}); throw e; }
-  },
-  // Re-authenticate (wajib sebelum ganti password)
-  reauthenticate: async (email, pw) => {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Tidak ada user aktif');
-    const credential = EmailAuthProvider.credential(email, pw);
-    return reauthenticateWithCredential(user, credential);
-  },
-  // Update password (requires reauthenticate first)
-  updatePassword: (newPw) => {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Tidak ada user aktif');
-    return updatePassword(user, newPw);
-  },
+export const reauthenticate = async (email, pw) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Tidak ada user aktif');
+  return reauthenticateWithCredential(user, EmailAuthProvider.credential(email, pw));
+};
+
+export const doUpdatePassword = (newPw) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Tidak ada user aktif');
+  return _updatePassword(user, newPw);
 };
 
 window.FIREBASE_READY = true;
-console.log("✅ Firebase v3.0 — Auth + Firestore aktif");
+console.log("✅ Firebase v4.0 — Auth + Firestore + Storage aktif");

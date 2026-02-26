@@ -4,16 +4,27 @@
 //  CV. Baitul Ma'mur Syafaah · 2026
 // ================================================================
 
-const CACHE_NAME   = 'bms-cache-v1';
+const CACHE_NAME   = 'bms-cache-v2';  // bumped — ES Modules phase 1-5
 const OFFLINE_URL  = '/index.html';
 
 // Aset yang di-cache saat install
+// Update ini setiap kali ada modul baru (fase 6, 7, dst.)
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/assets/css/style.css',
-  '/assets/js/app.js',
   '/manifest.json',
+  // ── Entry point & modul ES (jangan tambahkan defer/async) ──────
+  '/assets/js/main.js',
+  '/assets/js/app.js',              // fase 6-7 (belum dipecah)
+  // ── Modul fase 1-5 ─────────────────────────────────────────────
+  '/assets/js/modules/constants.js',
+  '/assets/js/modules/theme.js',
+  '/assets/js/modules/nav.js',
+  '/assets/js/modules/auth.js',
+  '/assets/js/modules/data.js',
+  // ── Firebase SDK ────────────────────────────────────────────────
+  '/assets/js/firebase.js',
 ];
 
 // ── INSTALL: cache aset utama ─────────────────────────────────────

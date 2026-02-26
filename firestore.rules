@@ -1,0 +1,156 @@
+rules_version = '2';
+// ================================================================
+//  BMS — Firestore Security Rules  v2.1
+//  CV. Baitul Ma'mur Syafaah
+// ================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isOwner() {
+      return isSignedIn() && getUserRole() == 'owner';
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserRole() == 'admin';
+    }
+
+    function isSales() {
+      return isSignedIn() && getUserRole() == 'sales';
+    }
+
+    function isOwnerOrAdmin() {
+      return isOwner() || isAdmin();
+    }
+
+    function isAnyValidRole() {
+      return isOwner() || isAdmin() || isSales();
+    }
+
+    // ── /users ───────────────────────────────────────────────────
+    // FIX v2.1: owner bisa buat/update profil user manapun (untuk tambah sales)
+    match /users/{uid} {
+      allow read:   if isSignedIn() && (request.auth.uid == uid || isOwner());
+      allow create: if isSignedIn() && (request.auth.uid == uid || isOwner());
+      allow update: if isSignedIn() && (isOwner() || request.auth.uid == uid);
+      allow delete: if isOwner();
+    }
+
+    // ── /test (appConfig + online status) ───────────────────────
+    match /test/{docId} {
+      allow read:  if isAnyValidRole();
+      allow write: if isOwnerOrAdmin() && docId == 'appConfig';
+      allow write: if isAnyValidRole() && docId == ('online_' + request.auth.uid);
+    }
+
+    // ── /barang ──────────────────────────────────────────────────
+    match /barang/{docId} {
+      allow read:   if isAnyValidRole();
+      allow create: if isOwnerOrAdmin();
+      allow update: if isOwnerOrAdmin();
+      allow update: if isSales() && request.resource.data.diff(resource.data)
+                       .affectedKeys().hasOnly(['stok','keluar','masuk','_ts']);
+      allow delete: if isOwnerOrAdmin();
+    }
+
+    // ── /invoice ─────────────────────────────────────────────────
+    match /invoice/{docId} {
+      allow read:   if isOwnerOrAdmin();
+      allow read:   if isSales() && isSignedIn();
+      allow create: if isAnyValidRole();
+      allow update: if isOwnerOrAdmin() && request.resource.data.diff(resource.data)
+                       .affectedKeys().hasOnly(['status','tempo','catatan','tglLunas',
+                         'editedAt','editAlasan','metodeBayar','_ts']);
+      allow update: if isSales()
+                       && resource.data.salesUid == request.auth.uid
+                       && request.resource.data.diff(resource.data)
+                          .affectedKeys().hasOnly(['status','tglLunas','_ts']);
+      allow delete: if isOwnerOrAdmin();
+    }
+
+    // ── /mitra ───────────────────────────────────────────────────
+    match /mitra/{docId} {
+      allow read:   if isAnyValidRole();
+      allow create: if isOwnerOrAdmin();
+      allow update: if isOwnerOrAdmin();
+      allow update: if isSales() && request.resource.data.diff(resource.data)
+                       .affectedKeys().hasOnly(['piutang','_ts']);
+      allow delete: if isOwnerOrAdmin();
+    }
+
+    // ── /pengeluaran ─────────────────────────────────────────────
+    match /pengeluaran/{docId} {
+      allow read:  if isAnyValidRole();
+      allow write: if isOwnerOrAdmin();
+    }
+
+    // ── /pembelian ───────────────────────────────────────────────
+    match /pembelian/{docId} {
+      allow read:  if isAnyValidRole();
+      allow write: if isOwnerOrAdmin();
+    }
+
+    // ── /gudang ──────────────────────────────────────────────────
+    match /gudang/{docId} {
+      allow read:  if isAnyValidRole();
+      allow write: if isOwnerOrAdmin();
+    }
+
+    // ── /surat_jalan ─────────────────────────────────────────────
+    match /surat_jalan/{docId} {
+      allow read:   if isOwnerOrAdmin();
+      allow read:   if isSales() && isSignedIn();
+      allow create: if isAnyValidRole();
+      allow update: if isOwnerOrAdmin();
+      allow update: if isSales() && resource.data.salesUid == request.auth.uid
+                       && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['sopir','kendaraan','catatan','status','_ts']);
+      allow delete: if isOwnerOrAdmin();
+    }
+
+    // ── /opname ──────────────────────────────────────────────────
+    match /opname/{docId} {
+      allow read:  if isOwnerOrAdmin();
+      allow write: if isOwnerOrAdmin();
+    }
+
+    // ── /log ─────────────────────────────────────────────────────
+    match /log/{docId} {
+      allow read:   if isOwnerOrAdmin();
+      allow create: if isAnyValidRole();
+      allow update: if false;
+      allow delete: if isOwner();
+    }
+
+    // ── /chat ────────────────────────────────────────────────────
+    match /chat/{docId} {
+      allow read:   if isAnyValidRole();
+      allow create: if isAnyValidRole();
+      allow update: if false;
+      // FIX v2.1: owner & admin bisa hapus chat (untuk kosongkan live chat)
+      allow delete: if isOwnerOrAdmin();
+    }
+
+    // ── /notifikasi ──────────────────────────────────────────────
+    match /notifikasi/{docId} {
+      allow read:   if isAnyValidRole();
+      allow create: if isOwnerOrAdmin();
+      allow update: if isAnyValidRole() && request.resource.data.diff(resource.data)
+                       .affectedKeys().hasOnly(['baca','_ts']);
+      allow delete: if isOwnerOrAdmin();
+    }
+
+    // ── Fallback: tolak semua yang tidak cocok ──────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

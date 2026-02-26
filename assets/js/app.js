@@ -1,885 +1,94 @@
 // ================================================================
-//  BMS app.js v10.0 — CV. Baitul Ma'mur Syafaah
-//  Firebase Auth + Firestore | Dark/Light | Sales Dashboard
-//  Multiple Sales | Settings | Stock Opname | Running Text
-//  Dibuat oleh @gostcyber 2026
-// ================================================================
+//  BMS app.js  v11.0 — CV. Baitul Ma'mur Syafaah
+//  ES Modules Phase 1-5 Refactor — 2026
 //
-//  #23 MODULE MAP — Siap refactor ke ES Modules
-//  ┌─────────────────┬────────────────────────────────────────────┐
-//  │ Section         │ Fungsi Utama                               │
-//  ├─────────────────┼────────────────────────────────────────────┤
-//  │ STATE           │ DB, currentUser, pagination, appConfig     │
-//  │ MENU CONFIG     │ MENU_CONFIG, MENU_GROUPS                   │
-//  │ THEME           │ initTheme, applyTheme, toggleTheme         │
-//  │ AUTH            │ doLogin, doLogout, applySession            │
-//  │ NAV             │ buildNav, navigateTo, toggleNavGroup       │
-//  │ FIRESTORE LOAD  │ loadAllFromFirestore, setupRealtimeList.   │
-//  │ RENDER TABLES   │ renderBarang, renderInvoice, renderMitra   │
-//  │ STOK            │ renderStok, simpanStokMasuk/Keluar         │
-//  │ OPNAME          │ renderOpname, simpanOpnameRow              │
-//  │ CHARTS          │ buildMainChart, buildLaporanChart          │
-//  │ SALES DASHBOARD │ buildSalesDashboard                        │
-//  │ BARANG CRUD     │ simpanBarang, editBarang, hapusBarang      │
-//  │ INVOICE CRUD    │ simpanInvoice, hapusTransaksi, printInv.   │
-//  │ MITRA CRUD      │ simpanMitra, hapusMitra                    │
-//  │ KEUANGAN        │ simpanPengeluaran, simpanPembelian         │
-//  │ NOTIFICATIONS   │ renderNotifications, checkStokKritis       │
-//  │ SETTINGS        │ renderSettings, saveCompanyProfile         │
-//  │ CHAT            │ toggleChat, sendMessage                    │
-//  │ EXPORT          │ exportCSV, exportExcel, backupData         │
-//  │ SURAT JALAN     │ generateSuratJalan, printSuratJalan        │
-//  │ TREN STOK       │ renderTrenStok, buildTrenBars              │
-//  │ MULTI-GUDANG    │ renderGudangList, simpanGudang             │
-//  │ RENDER ALL      │ renderAll (selective), renderAllFull       │
-//  │ UTILS           │ showToast, openModal, closeModal           │
-//  └─────────────────┴────────────────────────────────────────────┘
+//  ┌──────────────────────────────────────────────────────────┐
+//  │  PERHATIAN — File ini bukan lagi entry point utama       │
+//  │  Entry point: assets/js/main.js (type="module")          │
+//  │                                                          │
+//  │  File ini berisi FASE 6-7 (belum direfactor):            │
+//  │  - Business logic (CRUD, invoice, opname, dsb.)          │
+//  │  - UI Render functions (renderBarang, renderInvoice, …)  │
+//  │                                                          │
+//  │  State & helpers dibaca dari window.BMS (di-set oleh     │
+//  │  main.js sebelum file ini diimport).                     │
+//  └──────────────────────────────────────────────────────────┘
 //
+//  MODULE MAP — Status Refactor
+//  ┌──────────────────┬──────────────────┬───────────────────┐
+//  │ Modul            │ File             │ Status            │
+//  ├──────────────────┼──────────────────┼───────────────────┤
+//  │ Theme            │ modules/theme.js │ ✅ Fase 1 Selesai  │
+//  │ Constants/State  │ modules/constants│ ✅ Fase 2 Selesai  │
+//  │ Navigation       │ modules/nav.js   │ ✅ Fase 3 Selesai  │
+//  │ Auth/Session     │ modules/auth.js  │ ✅ Fase 4 Selesai  │
+//  │ Data/Firestore   │ modules/data.js  │ ✅ Fase 5 Selesai  │
+//  │ Business CRUD    │ (app.js)         │ 🔄 Fase 6 Antri   │
+//  │ UI Render        │ (app.js)         │ 🔄 Fase 7 Antri   │
+//  └──────────────────┴──────────────────┴───────────────────┘
 // ================================================================
 
+// ── COMPATIBILITY SHIM ────────────────────────────────────────────
+// All module state is available via window.BMS (set by main.js).
+// These local aliases allow the remaining code in this file to
+// continue using the original variable names without modification.
+// When phase 6-7 refactor is done, this block is deleted.
 
-// ───────────────────── MENU CONFIG ─────────────────────────────
-const MENU_CONFIG = [
-  { id:'dashboard',  label:'Dashboard',          icon:'fa-gauge',          sub:'Ringkasan bisnis hari ini' },
-  { id:'invoice',    label:'Transaksi',           icon:'fa-receipt',        sub:'Daftar transaksi penjualan' },
-  { id:'barang',     label:'Data Barang',         icon:'fa-box-open',       sub:'Kelola produk & inventaris' },
-  { id:'stok',       label:'Info Stok',           icon:'fa-warehouse',      sub:'Informasi stok barang' },
-  { id:'mitra',      label:'Mitra Bisnis',        icon:'fa-handshake',      sub:'Pelanggan & pemasok' },
-  { id:'keuangan',   label:'Keuangan',            icon:'fa-chart-line',     sub:'Laporan keuangan & aset' },
-  { id:'laporan',    label:'Laporan & Analitik',  icon:'fa-chart-bar',      sub:'Analisis performa bisnis' },
-  { id:'sales_dash', label:'Dashboard Sales',     icon:'fa-user-chart',     sub:'Performa & bonus penjualan' },
-  { id:'opname',     label:'Stock Opname',        icon:'fa-clipboard-check',sub:'Audit & generate laporan stok' },
-  { id:'settings',   label:'Pengaturan',          icon:'fa-cog',            sub:'Kelola pengguna & data' },
-  { id:'log',        label:'Log Aktivitas',       icon:'fa-list-check',     sub:'Rekam jejak aktivitas tim' },
-  { id:'tutorial',   label:'Panduan',             icon:'fa-circle-question',sub:'Cara pakai sistem' },
-  { id:'gudang',     label:'Multi-Gudang',        icon:'fa-warehouse',      sub:'Kelola stok per gudang' },
-  { id:'tren_stok',  label:'Tren Stok',           icon:'fa-chart-line',     sub:'Grafik naik/turun stok' },
-  { id:'surat_jalan',label:'Surat Jalan',         icon:'fa-truck',          sub:'Generate & kirim surat jalan' },
-];
+const { state: _S, DB, pagination, PAGE_SIZE, invoiceFilter, DEFAULT_KATEGORI } = window.BMS;
 
-// Grup menu: setiap grup bisa expand/collapse
-const MENU_GROUPS = [
-  { id:'g-dashboard', label:'Dashboard',     icon:'fa-gauge',           single:'dashboard' },
-  { id:'g-transaksi', label:'Transaksi',     icon:'fa-receipt',         single:'invoice'   },
-  { id:'g-data',      label:'Data Bisnis',   icon:'fa-boxes-stacked',   children:[
-      { id:'barang',  label:'Data Barang',   icon:'fa-box-open'   },
-      { id:'mitra',   label:'Mitra Bisnis',  icon:'fa-handshake'  },
-      { id:'stok',    label:'Info Stok',     icon:'fa-warehouse'  },
-  ]},
-  { id:'g-keu',       label:'Keuangan',      icon:'fa-chart-line',      children:[
-      { id:'keuangan',   label:'Keuangan',           icon:'fa-wallet'     },
-      { id:'laporan',    label:'Laporan & Analitik',  icon:'fa-chart-bar'  },
-      { id:'sales_dash', label:'Dashboard Sales',     icon:'fa-user-chart' },
-  ]},
-  { id:'g-stok',      label:'Stock Opname', icon:'fa-clipboard-check',  single:'opname'    },
-  { id:'g-gudang',    label:'Multi-Gudang', icon:'fa-warehouse',        children:[
-      { id:'gudang',     label:'Kelola Gudang',   icon:'fa-building'   },
-      { id:'tren_stok',  label:'Tren Stok',       icon:'fa-chart-line' },
-  ]},
-  { id:'g-pengiriman',label:'Pengiriman',   icon:'fa-truck',            single:'surat_jalan'},
-  { id:'g-setting',   label:'Pengaturan',   icon:'fa-cog',              children:[
-      { id:'settings', label:'Pengaturan',    icon:'fa-cog'        },
-      { id:'log',      label:'Log Aktivitas', icon:'fa-list-check' },
-  ]},
-  { id:'g-tutorial',  label:'Panduan',      icon:'fa-circle-question',  single:'tutorial'  },
-];
-
-let openGroups = new Set(['g-data']);
-
-// ───────────────────── CURRENCY HELPER ──────────────────────────
-// fmtRp(n) — Rp 384.000 | Rp 1.500.000  (konsisten seluruh app)
-function fmtRp(n) {
-  return 'Rp ' + (Number(n)||0).toLocaleString('id-ID');
-}
-
-// ───────────────────── PPN RATE HELPER ──────────────────────────
-// getPPNRate() — satu sumber kebenaran untuk kalkulasi PPN.
-// Mengembalikan 0 jika checkbox "Aktifkan PPN" tidak dicentang.
-// Fallback ke appConfig.ppnRate jika elemen belum tersedia (load awal).
-function getPPNRate() {
-  const cbEl   = document.getElementById('set-ppn-aktif');
-  const rateEl = document.getElementById('set-ppn-rate');
-  if (cbEl && !cbEl.checked) return 0;
-  const rate = parseFloat(rateEl?.value ?? appConfig?.ppnRate ?? 11);
-  return isNaN(rate) ? (appConfig?.ppnRate ?? 11) : rate;
-}
-
-// ───────────────────── TERBILANG ────────────────────────────────
-// terbilang(n) — "Satu Juta Lima Ratus Ribu Rupiah"
-function terbilang(angka) {
-  const satuan = ['','Satu','Dua','Tiga','Empat','Lima','Enam','Tujuh','Delapan','Sembilan',
-    'Sepuluh','Sebelas','Dua Belas','Tiga Belas','Empat Belas','Lima Belas','Enam Belas',
-    'Tujuh Belas','Delapan Belas','Sembilan Belas'];
-  const puluhan = ['','','Dua Puluh','Tiga Puluh','Empat Puluh','Lima Puluh',
-    'Enam Puluh','Tujuh Puluh','Delapan Puluh','Sembilan Puluh'];
-  function baca(n) {
-    if (n < 20) return satuan[n];
-    if (n < 100) return puluhan[Math.floor(n/10)] + (n%10 ? ' ' + satuan[n%10] : '');
-    if (n < 200) return 'Seratus' + (n%100 ? ' ' + baca(n%100) : '');
-    if (n < 1000) return satuan[Math.floor(n/100)] + ' Ratus' + (n%100 ? ' ' + baca(n%100) : '');
-    if (n < 2000) return 'Seribu' + (n%1000 ? ' ' + baca(n%1000) : '');
-    if (n < 1000000) return baca(Math.floor(n/1000)) + ' Ribu' + (n%1000 ? ' ' + baca(n%1000) : '');
-    if (n < 1000000000) return baca(Math.floor(n/1000000)) + ' Juta' + (n%1000000 ? ' ' + baca(n%1000000) : '');
-    if (n < 1000000000000) return baca(Math.floor(n/1000000000)) + ' Miliar' + (n%1000000000 ? ' ' + baca(n%1000000000) : '');
-    return n.toString();
-  }
-  const n = Math.round(Number(angka) || 0);
-  if (n === 0) return 'Nol Rupiah';
-  return baca(n) + ' Rupiah';
-}
-
-// ───────────────────── STATE ────────────────────────────────────
-let currentUser  = null;
-let selectedRole = 'owner';
-let selectedSalesId = null;
-let invItems  = [];
-let invCounter = 1000;
-let appConfig = null;   // loaded from Firestore /test/appConfig
-let onlineUsers = {};   // uid → { name, role, lastSeen }
-
-// ───────────────────── LOCAL DATA ───────────────────────────────
-const DB = {
-  barang: [], invoice: [], mitra: [],
-  pengeluaran: [], pembelian: [],
-  log: [], chat: [],
-  notifikasi: [],
-  gudang: [],       // Multi-Gudang
-  surat_jalan: [],  // Surat Jalan Digital
-};
-
-let chatMessages = [];
-let chatOpen = false;
-let activeChatTab = 'messages';
-
-// ───────────────────── PAGINATION STATE ─────────────────────────
-const PAGE_SIZE = 25; // Item per halaman — bisa diubah
-const pagination = {
-  barang:  { page: 1, total: 0 },
-  invoice: { page: 1, total: 0 },
-  mitra:   { page: 1, total: 0 },
-  log:     { page: 1, total: 0 },
-};
-
-function resetPage(key) { if (pagination[key]) pagination[key].page = 1; }
-function goPage(key, dir) {
-  if (!pagination[key]) return;
-  const maxPage = Math.ceil(pagination[key].total / PAGE_SIZE);
-  pagination[key].page = Math.min(Math.max(1, pagination[key].page + dir), maxPage || 1);
-  if      (key === 'barang')  renderBarang();
-  else if (key === 'invoice') renderInvoice();
-  else if (key === 'mitra')   renderMitra();
-  else if (key === 'log')     renderLog();
-}
-
-function renderPagination(key, total) {
-  pagination[key].total = total;
-  const page    = pagination[key].page;
-  const maxPage = Math.ceil(total / PAGE_SIZE) || 1;
-  const from    = (page - 1) * PAGE_SIZE + 1;
-  const to      = Math.min(page * PAGE_SIZE, total);
-  // Cari container pagination yang sesuai
-  const el = document.getElementById(`pagination-${key}`);
-  if (!el) return;
-  if (total === 0) { el.innerHTML = ''; return; }
-  el.innerHTML = `
-    <div class="pagination-wrap">
-      <span class="page-info">${from}–${to} dari ${total}</span>
-      <div class="page-btns">
-        <button class="page-btn" onclick="goPage('${key}',-1)" ${page<=1?'disabled':''}>
-          <i class="fas fa-chevron-left"></i>
-        </button>
-        <span class="page-current">${page} / ${maxPage}</span>
-        <button class="page-btn" onclick="goPage('${key}',1)" ${page>=maxPage?'disabled':''}>
-          <i class="fas fa-chevron-right"></i>
-        </button>
-      </div>
-    </div>`;
-}
-
-// ── FILTER STATE Invoice ─────────────────────────────────────────
-const invoiceFilter = { dari: '', sampai: '', status: '', metode: '' };
-
-function applyInvoiceFilter() {
-  invoiceFilter.dari    = document.getElementById('filter-inv-dari')?.value    || '';
-  invoiceFilter.sampai  = document.getElementById('filter-inv-sampai')?.value  || '';
-  invoiceFilter.status  = document.getElementById('filter-inv-status')?.value  || '';
-  invoiceFilter.metode  = document.getElementById('filter-inv-metode')?.value  || '';
-  resetPage('invoice');
-  renderInvoice();
-}
-
-function resetInvoiceFilter() {
-  ['filter-inv-dari','filter-inv-sampai','filter-inv-status','filter-inv-metode']
-    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  invoiceFilter.dari = invoiceFilter.sampai = invoiceFilter.status = invoiceFilter.metode = '';
-  resetPage('invoice');
-  renderInvoice();
-}
-
-function getFilteredInvoices() {
-  let list = [...DB.invoice];
-  // ROLE FILTER: sales hanya lihat invoice miliknya sendiri
-  if (currentUser?.role === 'sales') {
-    list = list.filter(i => i.salesUid === currentUser.uid || i.salesName === currentUser.name);
-  }
-  if (invoiceFilter.dari)   list = list.filter(i => i.tgl >= invoiceFilter.dari);
-  if (invoiceFilter.sampai) list = list.filter(i => i.tgl <= invoiceFilter.sampai);
-  if (invoiceFilter.status) list = list.filter(i => i.status === invoiceFilter.status);
-  if (invoiceFilter.metode) list = list.filter(i => i.metodeBayar === invoiceFilter.metode);
-  // Update info label
-  const info = document.getElementById('filter-inv-info');
-  const hasFilter = invoiceFilter.dari || invoiceFilter.sampai || invoiceFilter.status || invoiceFilter.metode;
-  if (info) info.textContent = hasFilter ? `${list.length} transaksi ditemukan` : '';
-  return list;
-}
-
-// ── FILTER STATE Laporan ─────────────────────────────────────────
-function resetLaporanFilter() {
-  ['filter-lap-dari','filter-lap-sampai'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
+// Proxy references — read/write go directly to module state
+// Use Object.defineProperty to create live getters/setters
+function _proxyState(localName, key) {
+  Object.defineProperty(globalThis, localName, {
+    get: () => _S[key],
+    set: (v) => { _S[key] = v; },
+    configurable: true,
   });
-  buildLaporanChart();
 }
 
-// ───────────────────── THEME ────────────────────────────────────
-function initTheme() {
-  const saved = localStorage.getItem('bms_theme') || 'light';
-  applyTheme(saved);
-}
-function applyTheme(theme) {
-  document.body.dataset.theme = theme;
-  localStorage.setItem('bms_theme', theme);
-  const btn = document.getElementById('theme-toggle-btn');
-  if (btn) btn.innerHTML = theme === 'dark'
-    ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
-}
-function toggleTheme() {
-  const cur = document.body.dataset.theme || 'light';
-  applyTheme(cur === 'dark' ? 'light' : 'dark');
-}
+_proxyState('currentUser',     'currentUser');
+_proxyState('selectedRole',    'selectedRole');
+_proxyState('selectedSalesId', 'selectedSalesId');
+_proxyState('invItems',        'invItems');
+_proxyState('invCounter',      'invCounter');
+_proxyState('appConfig',       'appConfig');
+_proxyState('onlineUsers',     'onlineUsers');
+_proxyState('chatMessages',    'chatMessages');
+_proxyState('chatOpen',        'chatOpen');
+_proxyState('activeChatTab',   'activeChatTab');
+_proxyState('_lastChatCount',  '_lastChatCount');
+_proxyState('_notifPermission','_notifPermission');
+_proxyState('_transferFromId', '_transferFromId');
+_proxyState('toastTimer',      'toastTimer');
 
-// ───────────────────── RUNNING TEXT ─────────────────────────────
-function updateRunningText() {
-  const el = document.getElementById('running-text-content');
-  if (!el || !DB.barang.length) return;
-  const sorted = [...DB.barang].sort((a,b) => (b.keluar||0)-(a.keluar||0));
-  const items = sorted.slice(0,5).map(b =>
-    `🔥 ${b.nama} — Rp ${(b.hjual||0).toLocaleString('id-ID')} / ${b.satuan}`
-  ).join('   ⬥   ');
-  el.textContent = items + '   ⬥   ' + items;
-}
-
-// ───────────────────── FIREBASE AUTH LOGIN ───────────────────────
-async function loadAppConfig() {
-  try {
-    const snap = await window.FS.getDoc(window.FS.docRef('test','appConfig'));
-    if (snap.exists()) {
-      appConfig = snap.data();
-    } else {
-      // Default config — owner wajib setup via Settings
-      appConfig = {
-        roleEmails: {
-          owner: 'owner@bms-syafaah.id',
-          admin : 'admin@bms-syafaah.id',
-        },
-        salesUsers: [
-          { id:'s1', name:'Sales Budi',  email:'sales1@bms-syafaah.id', avatar:'B' },
-          { id:'s2', name:'Sales Andi',  email:'sales2@bms-syafaah.id', avatar:'A' },
-          { id:'s3', name:'Sales Citra', email:'sales3@bms-syafaah.id', avatar:'C' },
-        ],
-        company: {
-          nama: "CV. Baitul Ma'mur Syafaah",
-          alamat: 'Ruko Villa Bogor Indah 5, Bogor, Jawa Barat',
-          telp: '(0251) 8xxx-xxxx',
-          email: 'info@bms-syafaah.id',
-          npwp: 'xx.xxx.xxx.x-xxx.xxx',
-          rekening: 'BCA 123-456-7890 a/n Baitul Mamur Syafaah',
-        },
-        bonusRate: 2,  // % komisi sales
-      };
-    }
-    renderSalesDropdown();
-    // Realtime listener untuk appConfig — agar daftar sales selalu update tanpa refresh
-    window.FS.onSnapshot(window.FS.docRef('test','appConfig'), docSnap => {
-      if (docSnap.exists()) {
-        appConfig = docSnap.data();
-        // Selalu update dropdown sales di halaman login
-        renderSalesDropdown();
-        // Update halaman settings hanya jika sudah login & halaman settings sedang aktif
-        if (currentUser) {
-          renderUsersList();
-          if (isPageActive('settings')) renderSettings();
-        }
-      }
-    });
-  } catch(e) {
-    console.warn('appConfig load failed:', e);
-    // Fallback default agar login tetap bisa berjalan walau Firestore error
-    if (!appConfig) {
-      appConfig = {
-        roleEmails: {
-          owner: 'owner@bms-syafaah.id',
-          admin : 'admin@bms-syafaah.id',
-        },
-        salesUsers: [
-          { id:'s1', name:'Sales Budi',  email:'sales1@bms-syafaah.id', avatar:'B' },
-          { id:'s2', name:'Sales Andi',  email:'sales2@bms-syafaah.id', avatar:'A' },
-          { id:'s3', name:'Sales Citra', email:'sales3@bms-syafaah.id', avatar:'C' },
-        ],
-        company: {
-          nama: "CV. Baitul Ma'mur Syafaah",
-          alamat: 'Ruko Villa Bogor Indah 5, Bogor, Jawa Barat',
-          telp: '(0251) 8xxx-xxxx',
-          email: 'info@bms-syafaah.id',
-          npwp: 'xx.xxx.xxx.x-xxx.xxx',
-          rekening: 'BCA 123-456-7890 a/n Baitul Mamur Syafaah',
-        },
-        bonusRate: 2,
-      };
-    }
-    renderSalesDropdown();
-    if (e.code === 'permission-denied') {
-      updateFBStatus('rules');
-    } else {
-      updateFBStatus('offline');
-    }
-  }
-}
-
-function renderSalesDropdown() {
-  const list = document.getElementById('sales-user-list');
-  if (!list || !appConfig) return;
-  const users = appConfig.salesUsers || [];
-  list.innerHTML = users.map(s =>
-    `<div class="sales-user-btn ${selectedSalesId===s.id?'active':''}"
-      onclick="selectSalesUser('${s.id}','${s.name}','${s.email}')">${s.avatar} ${s.name}</div>`
-  ).join('');
-}
-
-function selectSalesUser(id, name, email) {
-  selectedSalesId = id;
-  document.querySelectorAll('.sales-user-btn').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
-  document.getElementById('login-user-display').textContent = name;
-}
-
-function selectRole(role) {
-  selectedRole = role;
-  selectedSalesId = null;
-  document.querySelectorAll('.role-btn').forEach(c => c.classList.remove('active'));
-  document.getElementById('role-' + role).classList.add('active');
-  const salesPanel = document.getElementById('sales-list-panel');
-  if (salesPanel) salesPanel.style.display = role === 'sales' ? 'block' : 'none';
-  const display = document.getElementById('login-user-display');
-  if (display) display.textContent = role === 'sales' ? 'Pilih akun sales di bawah' :
-    (role === 'owner' ? 'Owner BMS' : 'Admin Keuangan');
-}
-
-async function doLogin() {
-  const password = document.getElementById('login-pass').value.trim();
-  if (!password) { showToast('Password wajib diisi!', 'error'); return; }
-
-  let email = '';
-  if (selectedRole === 'sales') {
-    if (!selectedSalesId) { showToast('Pilih akun sales terlebih dahulu!', 'error'); return; }
-    const su = (appConfig?.salesUsers || []).find(s => s.id === selectedSalesId);
-    email = su?.email || '';
-  } else {
-    email = appConfig?.roleEmails?.[selectedRole] || `${selectedRole}@bms-syafaah.id`;
-  }
-
-  if (!email) { showToast('Konfigurasi email tidak ditemukan!', 'error'); return; }
-
-  const btn = document.getElementById('btn-login');
-  if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Masuk...';
-
-  try {
-    await window.FA.signIn(email, password);
-    // onAuthStateChanged akan handle sisanya
-  } catch(err) {
-    const msgs = {
-      'auth/wrong-password'       : 'Password salah!',
-      'auth/user-not-found'       : 'Akun tidak ditemukan. Hubungi Owner.',
-      'auth/invalid-email'        : 'Format email tidak valid.',
-      'auth/too-many-requests'    : 'Terlalu banyak percobaan. Coba lagi nanti.',
-      'auth/network-request-failed': 'Gagal koneksi — cek internet.',
-      'auth/invalid-credential'   : 'Email atau password salah!',
-    };
-    showToast('❌ ' + (msgs[err.code] || err.message), 'error');
-    if (btn) btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Masuk ke Dashboard';
-  }
-}
-
-async function doLogout() {
-  if (!confirm('Yakin ingin keluar?')) return;
-  // Update online status
-  if (currentUser && window.FA.currentUser()) {
-    const uid = window.FA.currentUser().uid;
-    window.FS.setDoc(window.FS.docRef('test','online_'+uid), { active: false, lastSeen: window.FS.ts() }).catch(()=>{});
-  }
-  await window.FA.signOut();
-  currentUser = null;
-  document.getElementById('login-page').style.display = 'flex';
-  document.getElementById('app').style.display = 'none';
-}
-
-// ───────────────────── AUTH STATE LISTENER ───────────────────────
-window.FA.onAuth(async (fbUser) => {
-  if (!fbUser) return; // not logged in
-  try {
-    const snap = await window.FS.getDoc(window.FS.docRef('users', fbUser.uid));
-    let profile = snap.exists() ? snap.data() : null;
-
-    if (!profile) {
-      // Pertama login — buat profil berdasarkan email
-      profile = buildProfileFromEmail(fbUser.email, fbUser.uid);
-      await window.FS.setDoc(window.FS.docRef('users', fbUser.uid), profile);
-    }
-
-    // Pastikan 'tutorial' selalu ada di menus semua user (fix untuk akun lama)
-    if (profile.menus && !profile.menus.includes('tutorial')) {
-      profile.menus.push('tutorial');
-    }
-    currentUser = { ...profile, uid: fbUser.uid, email: fbUser.email };
-    applySession(currentUser);
-  } catch(e) {
-    console.error('Auth profile load error:', e);
-    showToast('❌ Gagal memuat profil. Cek Firestore rules.', 'error');
-  }
+// openGroups lives in state as well
+// nav.js uses state.openGroups directly, but old code uses openGroups bare
+Object.defineProperty(globalThis, 'openGroups', {
+  get: () => _S.openGroups || (_S.openGroups = new Set(['g-data'])),
+  set: (v) => { _S.openGroups = v; },
+  configurable: true,
 });
 
-function buildProfileFromEmail(email, uid) {
-  const cfg = appConfig || {};
-  const roleEmails = cfg.roleEmails || {};
-  let role = 'sales', name = 'Sales User', avatar = 'S', label = 'Tim Sales';
-  let menus = ['dashboard','stok','invoice','mitra','sales_dash'];
+// ── HELPER ALIASES ────────────────────────────────────────────────
+// fmtRp and terbilang are exposed on window by main.js — alias locally
+// for code in this file that calls them as bare names
+const fmtRp     = window.fmtRp;
+const terbilang = window.terbilang;
 
-  if (email === roleEmails.owner || email.startsWith('owner@')) {
-    role='owner'; name='Owner BMS'; avatar='O'; label='Pemilik / Administrator';
-    menus=['dashboard','barang','invoice','stok','mitra','keuangan','laporan','sales_dash','opname','gudang','tren_stok','surat_jalan','settings','log','tutorial'];
-  } else if (email === roleEmails.admin || email.startsWith('admin@')) {
-    role='admin'; name='Admin Keuangan'; avatar='R'; label='Admin Keuangan';
-    menus=['dashboard','barang','invoice','stok','mitra','keuangan','laporan','sales_dash','opname','gudang','tren_stok','surat_jalan','settings','tutorial'];
-  } else {
-    const su = (cfg.salesUsers || []).find(s => s.email === email);
-    if (su) { name=su.name; avatar=su.avatar||name[0]; }
-    menus=['dashboard','invoice','stok','mitra','sales_dash','surat_jalan','tutorial'];
-  }
-  return { role, name, avatar, label, menus, uid };
-}
-
-function applySession(user) {
-  document.getElementById('login-page').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  document.getElementById('sb-avatar').textContent = user.avatar || user.name[0];
-  document.getElementById('sb-name').textContent = user.name;
-  document.getElementById('sb-role').textContent = user.label;
-  buildNav(user.menus);
-  applyRoleRestrictions(user.role);
-  updateOnlineStatus(user);
-  initData();
-  navigateTo('dashboard');
-  updateDate();
-  renderNotifications();
-  renderNotifPermissionBtn();
-  showToast(`✅ Selamat datang, ${user.name}!`);
-  const btn = document.getElementById('btn-login');
-  if (btn) btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Masuk ke Dashboard';
-}
-
-function applyRoleRestrictions(role) {
-  const isSales    = role === 'sales';
-  const isOwner    = role === 'owner';
-  const isAdmin    = role === 'admin';
-  const isOwnerAdmin = isOwner || isAdmin;
-  const el = (id) => document.getElementById(id);
-
-  // ── Barang: sales hanya lihat, tidak bisa tambah/edit/hapus ──
-  if (el('btn-tambah-barang')) el('btn-tambah-barang').style.display = isSales ? 'none' : '';
-
-  // ── Stok: sales tidak bisa stok masuk/keluar manual ──
-  document.querySelectorAll('#page-stok .btn-success, #page-stok .btn-danger')
-    .forEach(b => b.style.display = isSales ? 'none' : '');
-
-  // ── Mitra: sales tidak bisa tambah/hapus mitra ──
-  if (el('btn-tambah-mitra')) el('btn-tambah-mitra').style.display = isSales ? 'none' : '';
-
-  // ── Keuangan: sales tidak punya akses (nav sudah dikunci di menus) ──
-
-  // ── Settings: admin bisa, sales tidak bisa ──
-  // (nav sudah dikunci di menus array per role)
-
-  // ── Log: hanya owner ──
-  const logNav = document.getElementById('nav-log');
-  if (logNav) logNav.style.display = isOwner ? '' : 'none';
-
-  // ── Gudang: sales tidak bisa tambah/hapus gudang ──
-  if (el('btn-tambah-gudang')) el('btn-tambah-gudang').style.display = isSales ? 'none' : '';
-
-  // ── Opname: hanya owner/admin ──
-  // (nav sudah dikunci di menus array per role)
-}
-
-// ───────────────────── ONLINE STATUS ────────────────────────────
-function updateOnlineStatus(user) {
-  if (!window.FA.currentUser()) return;
-  const uid = window.FA.currentUser().uid;
-  const ref = window.FS.docRef('test','online_'+uid);
-  const data = { uid, name: user.name, role: user.role, avatar: user.avatar, active: true, lastSeen: window.FS.ts() };
-  window.FS.setDoc(ref, data).catch(()=>{});
-  // Update every 60s
-  setInterval(() => window.FS.updateDoc(ref, { lastSeen: window.FS.ts() }).catch(()=>{}), 60000);
-  // Listen online users
-  window.FS.onSnapshot(window.FS.query(window.FS.col('test')), snap => {
-    onlineUsers = {};
-    snap.docs.forEach(d => {
-      const data = d.data();
-      if (data.active && data.uid) onlineUsers[data.uid] = data;
-    });
-    renderContactsList();
-    updateOnlineCount();
-  });
-}
-
-function updateOnlineCount() {
-  const count = Object.keys(onlineUsers).length;
-  const el = document.getElementById('online-count');
-  if (el) el.textContent = count + ' online';
-}
-
-// ───────────────────── NAV ───────────────────────────────────────
-function buildNav(allowed) {
-  const nav = document.getElementById('sidebar-nav');
-  nav.innerHTML = '<div class="nav-label">MENU UTAMA</div>';
-
-  MENU_GROUPS.forEach(group => {
-    // Filter: apakah grup ini ada itemnya yang diizinkan?
-    const allowedChildren = group.children
-      ? group.children.filter(c => allowed.includes(c.id))
-      : (allowed.includes(group.single) ? [group] : []);
-    if (allowedChildren.length === 0) return;
-
-    if (group.single) {
-      // Item tunggal — langsung nav-item biasa
-      const el = document.createElement('div');
-      el.className = 'nav-item';
-      el.id = 'nav-' + group.single;
-      el.onclick = () => { navigateTo(group.single); if(window.innerWidth<=768) closeSidebar(); };
-      el.innerHTML = `<i class="fas ${group.icon}"></i><span>${group.label}</span>`;
-      nav.appendChild(el);
-    } else {
-      // Grup dengan sub-menu
-      const isOpen = openGroups.has(group.id);
-      const grpEl = document.createElement('div');
-      grpEl.className = 'nav-group' + (isOpen ? ' open' : '');
-      grpEl.id = 'navgrp-' + group.id;
-
-      const hdr = document.createElement('div');
-      hdr.className = 'nav-group-header';
-      hdr.onclick = () => toggleNavGroup(group.id);
-      hdr.innerHTML = `<i class="fas ${group.icon}"></i><span>${group.label}</span><i class="fas fa-chevron-right nav-chevron"></i>`;
-      grpEl.appendChild(hdr);
-
-      const body = document.createElement('div');
-      body.className = 'nav-group-body';
-      allowedChildren.forEach(child => {
-        const ci = document.createElement('div');
-        ci.className = 'nav-item nav-sub-item';
-        ci.id = 'nav-' + child.id;
-        ci.onclick = () => { navigateTo(child.id); if(window.innerWidth<=768) closeSidebar(); };
-        ci.innerHTML = `<i class="fas ${child.icon}"></i><span>${child.label}</span>`;
-        body.appendChild(ci);
-      });
-      grpEl.appendChild(body);
-      nav.appendChild(grpEl);
-    }
-  });
-}
-
-function toggleNavGroup(groupId) {
-  const el = document.getElementById('navgrp-' + groupId);
-  if (!el) return;
-  const isOpen = el.classList.contains('open');
-  if (isOpen) { el.classList.remove('open'); openGroups.delete(groupId); }
-  else { el.classList.add('open'); openGroups.add(groupId); }
-}
-
-function closeSidebar() {
-  document.getElementById('sidebar').classList.remove('mobile-open');
-  document.getElementById('sidebar-overlay').classList.remove('show');
-}
-
-// BUG #1 FIX — toggleSidebar was missing; hamburger menu errored on mobile
-function toggleSidebar() {
-  const sb = document.getElementById('sidebar');
-  const ov = document.getElementById('sidebar-overlay');
-  const isOpen = sb.classList.contains('mobile-open');
-  if (isOpen) {
-    sb.classList.remove('mobile-open');
-    ov.classList.remove('show');
-  } else {
-    sb.classList.add('mobile-open');
-    ov.classList.add('show');
-  }
-}
-
-function navigateTo(id) {
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  const navEl = document.getElementById('nav-' + id);
-  if (navEl) {
-    navEl.classList.add('active');
-    // Auto-open parent group if it's a sub-item
-    const grp = navEl.closest('.nav-group');
-    if (grp && !grp.classList.contains('open')) {
-      grp.classList.add('open');
-      openGroups.add(grp.id.replace('navgrp-',''));
-    }
-  }
-  const pageEl = document.getElementById('page-' + id);
-  if (pageEl) pageEl.classList.add('active');
-  const cfg = MENU_CONFIG.find(m => m.id === id);
-  if (cfg) {
-    document.getElementById('page-title').textContent = cfg.label;
-    document.getElementById('page-sub').textContent = cfg.sub;
-  }
-  if (id === 'laporan')    { buildLaporanChart(); renderLaporanPiutang(); }
-  if (id === 'sales_dash') buildSalesDashboard();
-  if (id === 'settings')   renderSettings();
-  if (id === 'opname')     renderOpname();
-  if (id === 'keuangan')   renderAssets();
-  if (id === 'log')        renderLog();
-  if (id === 'tren_stok')  { updateTrenStokDropdown(); renderTrenStok(); }
-  if (id === 'gudang')     renderGudangList();
-  if (id === 'surat_jalan') renderSuratJalanList();
-}
-
-// ───────────────────── PANDUAN TABS ─────────────────────────
-function switchGuide(tab) {
-  // Sembunyikan semua panel
-  document.querySelectorAll('.guide-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.guide-tab').forEach(t => t.classList.remove('active'));
-  // Tampilkan yang dipilih
-  const panel = document.getElementById('guide-' + tab);
-  if (panel) panel.classList.add('active');
-  // Aktifkan tombol tab yang sesuai
-  const tabs = document.querySelectorAll('.guide-tab');
-  const tabMap = ['login','barang','transaksi','stok','keuangan','opname','pengaturan','tips'];
-  const idx = tabMap.indexOf(tab);
-  if (tabs[idx]) tabs[idx].classList.add('active');
-}
-
-// ───────────────────── INIT ─────────────────────────────────────
-function initData() {
-  if (window.FIREBASE_READY) {
-    loadAllFromFirestore();
-  } else {
-    let w = 0;
-    const t = setInterval(() => {
-      w += 200;
-      if (window.FIREBASE_READY) { clearInterval(t); loadAllFromFirestore(); }
-      else if (w >= 4000) { clearInterval(t); renderAllFull(); showToast('⚠️ Mode offline', 'warning'); }
-    }, 200);
-  }
-  setDefaultDates();
-  renderChatMessages();
-  updateKategoriDropdowns();
-  document.getElementById('inv-no').value = `TRX-${new Date().getFullYear()}-${invCounter}`;
-}
-
-// ───────────────────── FIRESTORE LOAD ───────────────────────────
-async function loadAllFromFirestore() {
-  const { FS } = window;
-  const role = currentUser?.role || 'sales';
-  const isOwnerAdmin = role === 'owner' || role === 'admin';
-  updateFBStatus('loading');
-  try {
-    // Query dasar untuk semua role
-    const baseQueries = [
-      FS.getDocs(FS.query(FS.col('barang'),       FS.orderBy('_ts','desc'))),
-      FS.getDocs(FS.query(FS.col('invoice'),      FS.orderBy('_ts','desc'))),
-      FS.getDocs(FS.query(FS.col('mitra'),        FS.orderBy('_ts','desc'))),
-      FS.getDocs(FS.query(FS.col('notifikasi'),   FS.orderBy('_ts','desc'), FS.limit(50))),
-      FS.getDocs(FS.query(FS.col('gudang'),       FS.orderBy('_ts','desc'))),
-      FS.getDocs(FS.query(FS.col('surat_jalan'),  FS.orderBy('_ts','desc'))),
-    ];
-    // Query tambahan hanya untuk owner/admin
-    const adminQueries = isOwnerAdmin ? [
-      FS.getDocs(FS.query(FS.col('pengeluaran'),  FS.orderBy('_ts','desc'))),
-      FS.getDocs(FS.query(FS.col('pembelian'),    FS.orderBy('_ts','desc'))),
-      FS.getDocs(FS.query(FS.col('log'),          FS.orderBy('_ts','desc'), FS.limit(100))),
-    ] : [];
-
-    const results = await Promise.all([...baseQueries, ...adminQueries]);
-    const [sB, sI, sM, sN, sG, sSJ] = results;
-    const [sP, sPm, sL] = isOwnerAdmin ? results.slice(6) : [null, null, null];
-
-    if (!sB.empty)  DB.barang      = sB.docs.map(d  => ({ _id:d.id,...d.data() }));
-    if (!sI.empty)  DB.invoice     = sI.docs.map(d  => ({ _id:d.id,...d.data() }));
-    if (!sM.empty)  DB.mitra       = sM.docs.map(d  => ({ _id:d.id,...d.data() }));
-    if (sP  && !sP.empty)  DB.pengeluaran = sP.docs.map(d  => ({ _id:d.id,...d.data() }));
-    if (sPm && !sPm.empty) DB.pembelian   = sPm.docs.map(d => ({ _id:d.id,...d.data() }));
-    if (sL  && !sL.empty)  DB.log         = sL.docs.map(d  => ({ _id:d.id,...d.data() }));
-    if (!sN.empty)  DB.notifikasi  = sN.docs.map(d  => ({ _id:d.id,...d.data() }));
-    if (!sG.empty)  DB.gudang      = sG.docs.map(d  => ({ _id:d.id,...d.data() }));
-    if (!sSJ.empty) DB.surat_jalan = sSJ.docs.map(d => ({ _id:d.id,...d.data() }));
-
-    setupRealtimeListeners();
-    renderAllFull();
-    renderLog();
-    updateFBStatus('online');
-    showToast('☁️ Data berhasil dimuat dari Firebase!', 'success');
-  } catch(err) {
-    console.error('Firestore error:', err);
-    updateFBStatus('offline');
-    renderAllFull();
-    showToast('⚠️ Firebase error — ' + err.message, 'warning');
-  }
-}
-
-function setupRealtimeListeners() {
-  const { FS } = window;
-  FS.onSnapshot(FS.query(FS.col('barang'),     FS.orderBy('_ts','desc')), s => {
-    DB.barang=s.docs.map(d=>({_id:d.id,...d.data()})); renderBarang(); renderStok(); renderStokKritis(); fillDropdowns(); buildMainChart(); updateRunningText(); renderDashboardStats();
-  });
-  FS.onSnapshot(FS.query(FS.col('invoice'),    FS.orderBy('_ts','desc')), s => {
-    DB.invoice=s.docs.map(d=>({_id:d.id,...d.data()})); renderInvoice(); renderInvoiceStats(); renderDashboardStats(); buildMainChart();
-    if(isPageActive('laporan')) { buildLaporanChart(); renderLaporanPiutang(); }
-  });
-  FS.onSnapshot(FS.query(FS.col('mitra'),      FS.orderBy('_ts','desc')), s => {
-    DB.mitra=s.docs.map(d=>({_id:d.id,...d.data()})); renderMitra(); fillDropdowns();
-  });
-  // Pengeluaran, pembelian, log: hanya untuk owner/admin
-  const isOwnerAdmin = currentUser?.role === 'owner' || currentUser?.role === 'admin';
-  if (isOwnerAdmin) {
-    FS.onSnapshot(FS.query(FS.col('pengeluaran'),FS.orderBy('_ts','desc')), s => {
-      DB.pengeluaran=s.docs.map(d=>({_id:d.id,...d.data()})); renderPengeluaran();
-      if(isPageActive('keuangan')) renderAssets();
-    });
-    FS.onSnapshot(FS.query(FS.col('pembelian'),  FS.orderBy('_ts','desc')), s => {
-      DB.pembelian=s.docs.map(d=>({_id:d.id,...d.data()})); renderPembelian();
-      if(isPageActive('keuangan')) renderAssets();
-    });
-    FS.onSnapshot(FS.query(FS.col('log'),        FS.orderBy('_ts','desc'), FS.limit(100)), s => {
-      DB.log=s.docs.map(d=>({_id:d.id,...d.data()})); renderLog();
-    });
-  }
-  FS.onSnapshot(FS.query(FS.col('chat'),       FS.orderBy('_ts','asc'),  FS.limit(50)),  s => {
-    {
-      const newMessages = s.docs.map(d=>({_id:d.id,...d.data()}));
-      // Putar notif suara jika ada pesan baru dari orang lain & chat sedang tutup
-      if (!chatOpen && newMessages.length > _lastChatCount) {
-        const latestMsg = newMessages[newMessages.length - 1];
-        const myUid = window.FA?.currentUser()?.uid;
-        if (latestMsg.uid !== myUid) {
-          playChatNotifSound();
-          const badge = document.getElementById('chat-unread-badge');
-          if (badge) { badge.style.display = ''; badge.textContent = '!'; }
-        }
-      }
-      _lastChatCount = newMessages.length;
-      DB.chat = newMessages;
-      renderChatMessages();
-    }
-  });
-  FS.onSnapshot(FS.query(FS.col('notifikasi'), FS.orderBy('_ts','desc'), FS.limit(50)), s => {
-    if(!s.empty) { DB.notifikasi=s.docs.map(d=>({_id:d.id,...d.data()})); renderNotifications(); }
-  });
-  FS.onSnapshot(FS.query(FS.col('gudang'), FS.orderBy('_ts','desc')), s => {
-    DB.gudang = s.docs.map(d=>({_id:d.id,...d.data()}));
-    renderGudangList();
-    const badge = document.getElementById('total-gudang-badge');
-    if (badge) badge.textContent = DB.gudang.length + ' Gudang';
-  });
-  FS.onSnapshot(FS.query(FS.col('surat_jalan'), FS.orderBy('_ts','desc')), s => {
-    DB.surat_jalan = s.docs.map(d=>({_id:d.id,...d.data()}));
-    renderSuratJalanList();
-  });
-}
-
-// ───────────────────── ACTIVITY LOG ────────────────────────────
-async function addLog(aksi, detail) {
-  if (!currentUser) return;
-  const data = {
-    user: currentUser.name, role: currentUser.role,
-    aksi, detail, waktu: new Date().toISOString()
-  };
-  try { await window.FS.addDoc(window.FS.col('log'), data); }
-  catch(e) { DB.log.unshift({...data, _id:Date.now().toString()}); renderLog(); }
-}
-
-function renderLog() {
-  const tbody = document.getElementById('tbody-log');
-  if (!tbody) return;
-  const icons = { login:'fa-sign-in-alt', tambah:'fa-plus', hapus:'fa-trash', invoice:'fa-file-invoice', stok:'fa-warehouse', chat:'fa-comment', edit:'fa-edit', export:'fa-download', setting:'fa-cog' };
-  // Pagination log
-  const total = DB.log.length;
-  const page  = pagination.log.page;
-  const start = (page - 1) * PAGE_SIZE;
-  const paged = DB.log.slice(start, start + PAGE_SIZE);
-  tbody.innerHTML = paged.map((l,i) => `
-    <tr>
-      <td><span class="badge badge-blue"><i class="fas ${icons[l.aksi]||'fa-circle'} me-1"></i>${l.aksi}</span></td>
-      <td><strong>${l.user}</strong></td>
-      <td><span class="badge ${l.role==='owner'?'badge-purple':l.role==='admin'?'badge-amber':'badge-green'}">${l.role}</span></td>
-      <td>${l.detail}</td>
-      <td style="color:var(--text-muted);font-size:12px">${new Date(l.waktu).toLocaleString('id-ID')}</td>
-    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted)">📋 Log kosong</td></tr>';
-  renderPagination('log', total);
-}
-
-async function clearLog() {
-  if (currentUser?.role !== 'owner') { showToast('❌ Hanya Owner yang bisa hapus log!', 'error'); return; }
-  if (!confirm('Hapus semua log aktivitas dari cloud? Tindakan ini permanen!')) return;
-  try {
-    const snap = await window.FS.getDocs(window.FS.col('log'));
-    const batch = window.FS.batch();
-    snap.docs.forEach(d => batch.delete(d.ref));
-    await batch.commit();
-    DB.log = [];
-    renderLog();
-    showToast('🗑️ Log berhasil dihapus dari cloud!');
-    addLog('setting', 'Log aktivitas dibersihkan');
-  } catch(e) { showToast('❌ Gagal hapus log: ' + e.message, 'error'); }
-}
-
-// ───────────────────── FIREBASE STATUS ──────────────────────────
-function updateFBStatus(state) {
-  const el  = document.getElementById('fb-status');
-  const txt = document.getElementById('fb-status-text');
-  if (!el || !txt) return;
-  const states = {
-    online  : { cls:'online',  text:'☁️ Firebase terhubung — data real-time' },
-    offline : { cls:'offline', text:'⚠️ Tidak terhubung — cek koneksi internet atau Firestore Rules' },
-    loading : { cls:'offline', text:'🔄 Menghubungkan ke Firebase...' },
-    rules   : { cls:'offline', text:'🔒 Akses ditolak — periksa Firestore Security Rules' },
-  };
-  const s = states[state] || states.offline;
-  el.className = `firebase-status ${s.cls}`;
-  txt.textContent = s.text;
-}
-
-function setDefaultDates() {
-  const today = new Date().toISOString().split('T')[0];
-  ['inv-tgl','pe-tgl','sm-tgl','sk-tgl','pb-tgl'].forEach(id => {
-    const el = document.getElementById(id); if(el) el.value = today;
-  });
-  const t30 = new Date(); t30.setDate(t30.getDate()+30);
-  const el = document.getElementById('inv-tempo'); if(el) el.value = t30.toISOString().split('T')[0];
-}
-
-function fillDropdowns() {
-  const mitraOpts   = DB.mitra.map(m => `<option>${m.nama}</option>`).join('');
-  const barangOpts  = DB.barang.map(b => `<option>${b.nama}</option>`).join('');
-  const pemasokOpts = DB.mitra.filter(m=>m.tipe==='Pemasok').map(m=>`<option>${m.nama}</option>`).join('');
-  const safe = (id,inner) => { const el=document.getElementById(id); if(el) el.innerHTML=inner; };
-  safe('inv-mitra',   '<option value="">Pilih Mitra...</option>' + mitraOpts);
-  safe('sm-barang',   '<option value="">Pilih Barang...</option>' + barangOpts);
-  safe('sk-barang',   '<option value="">Pilih Barang...</option>' + barangOpts);
-  safe('pb-barang',   '<option value="">Pilih Barang...</option>' + barangOpts);
-  safe('sm-pemasok',  '<option value="">Pilih Pemasok...</option>' + pemasokOpts);
-  safe('pb-pemasok',  '<option value="">Pilih Pemasok...</option>' + pemasokOpts);
-}
+// Module functions used in this file — alias from window bridge
+const addLog              = (...a) => window.addLog?.(...a);
+const renderLog           = (...a) => window.renderLog?.(...a);
+const fillDropdowns       = (...a) => window.fillDropdowns?.(...a);
+const updateRunningText   = (...a) => window.updateRunningText?.(...a);
+const showToast           = (...a) => window.showToast?.(...a);
+const openModal           = (...a) => window.openModal?.(...a);
+const closeModal          = (...a) => window.closeModal?.(...a);
+const isPageActive        = (id)   => window.isPageActive?.(id);
+const renderPagination    = (...a) => window.renderPagination?.(...a);
+const resetPage           = (...a) => window.resetPage?.(...a);
+const navigateTo          = (...a) => window.navigateTo?.(...a);
+const updateFBStatus      = (...a) => window.updateFBStatus?.(...a);
+const getFilteredInvoices = (...a) => window.getFilteredInvoices?.(...a);
 
 // ───────────────────── RENDER TABLES ───────────────────────────
 function renderBarang() {
@@ -1453,9 +662,6 @@ function renderSettings() {
   safe('set-company-rek',   c.rekening);
   safe('set-bonus-rate', appConfig?.bonusRate||2);
   safe('set-ppn-rate',   appConfig?.ppnRate ?? 11);
-  // Load status checkbox PPN — default true (aktif) jika belum pernah disimpan
-  const cbPpn = document.getElementById('set-ppn-aktif');
-  if (cbPpn) cbPpn.checked = appConfig?.ppnAktif !== false;
   // Load kategori dari appConfig cloud jika ada
   if (appConfig?.kategori?.length) {
     localStorage.setItem('bms_kategori', JSON.stringify(appConfig.kategori));
@@ -1573,12 +779,10 @@ async function saveCompanyProfile() {
   };
   const bonusRate = parseInt(document.getElementById('set-bonus-rate')?.value)||2;
   const ppnRate   = parseInt(document.getElementById('set-ppn-rate')?.value) ?? 11;
-  const ppnAktif  = document.getElementById('set-ppn-aktif')?.checked !== false;
   if (!appConfig) appConfig = {};
   appConfig.company   = company;
   appConfig.bonusRate = bonusRate;
   appConfig.ppnRate   = ppnRate;
-  appConfig.ppnAktif  = ppnAktif;
   appConfig.kategori  = getKategoriList();
   try {
     await window.FS.setDoc(window.FS.docRef('test','appConfig'), appConfig);
@@ -2174,7 +1378,7 @@ function hitungTotal() {
   const subtotal = items.reduce((s,i)=>s+(i.total||0),0);
   const diskon   = parseFloat(document.getElementById('inv-diskon')?.value)||0;
   const afterD   = subtotal*(1-diskon/100);
-  const ppnRate  = getPPNRate();
+  const ppnRate  = appConfig?.ppnRate ?? 11;
   const ppn      = afterD*(ppnRate/100);
   const total    = afterD+ppn;
   const safe = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
@@ -2184,9 +1388,6 @@ function hitungTotal() {
   // Update label PPN agar menampilkan persentase aktual
   const ppnLabel = document.getElementById('inv-ppn-label');
   if (ppnLabel) ppnLabel.textContent = `PPN ${ppnRate}%`;
-  // Sembunyikan baris PPN jika PPN dinonaktifkan
-  const ppnRow = document.getElementById('inv-ppn-row');
-  if (ppnRow) ppnRow.style.display = ppnRate > 0 ? '' : 'none';
 }
 
 async function hapusTransaksi(i) {
@@ -2269,7 +1470,7 @@ async function simpanInvoice() {
   const subtotal   = items.reduce((s,i)=>s+i.total,0);
   const diskon     = parseFloat(document.getElementById('inv-diskon')?.value)||0;
   const afterD     = subtotal*(1-diskon/100);
-  const ppnRate    = getPPNRate();
+  const ppnRate    = appConfig?.ppnRate ?? 11;
   const ppn        = afterD*(ppnRate/100);
   const total      = Math.round(afterD+ppn);
   const metodeBayar = document.getElementById('inv-bayar')?.value || 'Tempo';
@@ -2284,8 +1485,7 @@ async function simpanInvoice() {
     metodeBayar,
     mitra, total, status,
     items, diskon,
-    ppnRate     : ppnRate,
-    ppnAktif    : ppnRate > 0,
+    ppnRate     : appConfig?.ppnRate ?? 11,
     catatan     : document.getElementById('inv-catatan')?.value.trim() || '',
     salesName   : currentUser?.name||'',
     salesUid    : currentUser?.uid||'',
@@ -2428,7 +1628,7 @@ function previewInvoice() {
   const subtotal = items.reduce((s,i)=>s+(i.total||0),0);
   const diskon   = parseFloat(document.getElementById('inv-diskon')?.value)||0;
   const afterD   = subtotal*(1-diskon/100);
-  const ppnRate  = getPPNRate();
+  const ppnRate  = appConfig?.ppnRate ?? 11;
   const ppn      = afterD*(ppnRate/100);
   const total    = afterD+ppn;
   const catatan  = document.getElementById('inv-catatan')?.value.trim() || '';
@@ -2456,7 +1656,7 @@ function previewInvoice() {
     <div class="invoice-totals"><table>
       <tr><td>Subtotal</td><td style="text-align:right">Rp ${subtotal.toLocaleString('id-ID')}</td></tr>
       ${diskon>0?`<tr><td>Diskon (${diskon}%)</td><td style="text-align:right;color:var(--danger)">- Rp ${Math.round(subtotal*diskon/100).toLocaleString('id-ID')}</td></tr>`:''}
-      ${ppnRate>0?`<tr><td>PPN ${ppnRate}%</td><td style="text-align:right">Rp ${Math.round(ppn).toLocaleString('id-ID')}</td></tr>`:''}
+      <tr><td>PPN ${ppnRate}%</td><td style="text-align:right">Rp ${Math.round(ppn).toLocaleString('id-ID')}</td></tr>
       <tr class="total-row"><td>TOTAL</td><td style="text-align:right">Rp ${Math.round(total).toLocaleString('id-ID')}</td></tr>
     </table></div>
     ${catatan ? `<div class="invoice-catatan"><strong>Catatan:</strong> ${catatan}</div>` : ''}
@@ -2506,7 +1706,7 @@ function showInvoicePreview(i) {
   const subtotal   = inv.items ? inv.items.filter(Boolean).reduce((s,it)=>s+(it.total||0),0) : inv.total;
   const diskon     = inv.diskon || 0;
   const afterD     = subtotal * (1 - diskon/100);
-  const ppnRate    = (inv.ppnAktif === false || inv.ppnRate === 0) ? 0 : (inv.ppnRate ?? appConfig?.ppnRate ?? 11);
+  const ppnRate    = inv.ppnRate ?? appConfig?.ppnRate ?? 11;
   const ppn        = afterD * (ppnRate/100);
 
   document.getElementById('invoice-preview-content').innerHTML = `
@@ -2542,7 +1742,7 @@ function showInvoicePreview(i) {
       <table>
         <tr><td>Subtotal</td><td style="text-align:right">Rp ${subtotal.toLocaleString('id-ID')}</td></tr>
         ${diskon > 0 ? `<tr><td>Diskon (${diskon}%)</td><td style="text-align:right;color:#dc2626">- Rp ${Math.round(subtotal*diskon/100).toLocaleString('id-ID')}</td></tr>` : ''}
-        ${ppnRate > 0 ? `<tr><td>PPN ${ppnRate}%</td><td style="text-align:right">Rp ${Math.round(ppn).toLocaleString('id-ID')}</td></tr>` : ''}
+        <tr><td>PPN ${ppnRate}%</td><td style="text-align:right">Rp ${Math.round(ppn).toLocaleString('id-ID')}</td></tr>
         <tr class="total-row"><td>TOTAL</td><td style="text-align:right">Rp ${(inv.total||0).toLocaleString('id-ID')}</td></tr>
       </table>
     </div>

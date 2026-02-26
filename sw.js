@@ -60,14 +60,13 @@ self.addEventListener('fetch', (event) => {
       event.request.url.includes('identitytoolkit.googleapis.com') ||
       event.request.url.includes('googleapis.com')) return;
 
-  // FIX v1.1: Abaikan URL non-http (chrome-extension, dll.)
+  // FIX v11.1: Abaikan URL non-http (chrome-extension, dll.)
   const url = event.request.url;
   if (!url.startsWith('http')) return;
 
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        // Cache response baru — hanya URL http/https
         if (response && response.status === 200 && response.type !== 'opaque') {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone)).catch(()=>{});
@@ -75,7 +74,6 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(() =>
-        // Offline: ambil dari cache
         caches.match(event.request)
           .then(cached => cached || caches.match(OFFLINE_URL))
       )

@@ -17,7 +17,7 @@ export async function loadAppConfig() {
     } else {
       state.appConfig = _defaultConfig();
     }
-    updateFBStatus('online');  // FIX: status dari 'loading' ke 'online' setelah appConfig berhasil
+    updateFBStatus('online');  // FIX v11.1: update status setelah appConfig berhasil
     renderSalesDropdown();
     // Realtime listener appConfig
     import('../firebase.js').then(({ onSnapshot, docRef: dr, col }) => {

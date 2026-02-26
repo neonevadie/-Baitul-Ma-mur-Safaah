@@ -76,7 +76,7 @@ export function updateFBStatus(s) {
     online : { cls:'online',  text:'☁️ Firebase terhubung — data real-time' },
     offline: { cls:'offline', text:'⚠️ Tidak terhubung — cek koneksi internet atau Firestore Rules' },
     loading: { cls:'offline', text:'🔄 Menghubungkan ke Firebase...' },
-    rules  : { cls:'offline', text:'🔒 Akses ditolak — periksa Firestore Security Rules v2.1' },
+    rules  : { cls:'offline', text:'🔒 Akses ditolak — periksa Firestore Security Rules v2.2' },
   };
   const v = map[s] || map.offline;
   el.className   = `firebase-status ${v.cls}`;

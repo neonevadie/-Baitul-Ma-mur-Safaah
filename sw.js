@@ -1,13 +1,12 @@
 // ================================================================
-//  BMS — Service Worker v1.0
-//  PWA Support: Cache, Offline Fallback, Push Notifikasi
-//  CV. Baitul Ma'mur Syafaah · 2026
+//  BMS — Service Worker v11.2
+//  PWA Support: Cache, Offline Fallback
+//  FIX v11.2: skipWaiting UNCONDITIONAL agar update langsung aktif
 // ================================================================
 
-const CACHE_NAME   = 'bms-cache-v11.1';
+const CACHE_NAME   = 'bms-cache-v11.2';
 const OFFLINE_URL  = '/index.html';
 
-// Aset yang di-cache saat install — v11.0 ES Modules
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -26,90 +25,95 @@ const PRECACHE_ASSETS = [
   '/manifest.json',
 ];
 
-// ── INSTALL: cache aset utama ─────────────────────────────────────
+// ── INSTALL: skipWaiting DULU, baru cache ────────────────────────
+// FIX: self.skipWaiting() dipanggil PERTAMA agar SW langsung aktif
+// tanpa perlu menutup semua tab. Cache gagal pun tidak jadi masalah.
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing BMS Service Worker...');
+  console.log('[SW v11.2] Installing...');
+  self.skipWaiting(); // ← UNCONDITIONAL: tidak tunggu precache selesai
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(PRECACHE_ASSETS))
-      .then(() => self.skipWaiting())
-      .catch(err => console.warn('[SW] Precache failed:', err))
+      .catch(err => console.warn('[SW] Precache failed (non-critical):', err))
   );
 });
 
-// ── ACTIVATE: bersihkan cache lama ───────────────────────────────
+// ── ACTIVATE: hapus cache lama, ambil alih semua klien ───────────
 self.addEventListener('activate', (event) => {
-  console.log('[SW] BMS Service Worker activated');
+  console.log('[SW v11.2] Activated');
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys
-          .filter(k => k !== CACHE_NAME)
-          .map(k => { console.log('[SW] Deleting old cache:', k); return caches.delete(k); })
-      )
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(
+        keys.filter(k => k !== CACHE_NAME).map(k => {
+          console.log('[SW] Clearing old cache:', k);
+          return caches.delete(k);
+        })
+      ))
+      .then(() => self.clients.claim()) // ambil alih semua tab yang terbuka
   );
+});
+
+// ── MESSAGE: terima perintah skipWaiting dari halaman ────────────
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
 
 // ── FETCH: Network-first, fallback ke cache ───────────────────────
 self.addEventListener('fetch', (event) => {
-  // Abaikan request non-GET dan Firebase
   if (event.request.method !== 'GET') return;
-  if (event.request.url.includes('firebaseio.com') ||
-      event.request.url.includes('firestore.googleapis.com') ||
-      event.request.url.includes('identitytoolkit.googleapis.com') ||
-      event.request.url.includes('googleapis.com')) return;
 
-  // FIX v11.1: Abaikan URL non-http (chrome-extension, dll.)
   const url = event.request.url;
+
+  // Abaikan URL non-http dan Firebase API calls
   if (!url.startsWith('http')) return;
+  if (url.includes('firebaseio.com') ||
+      url.includes('firestore.googleapis.com') ||
+      url.includes('identitytoolkit.googleapis.com') ||
+      url.includes('googleapis.com') ||
+      url.includes('gstatic.com')) return;
 
   event.respondWith(
     fetch(event.request)
       .then(response => {
+        // Cache versi terbaru jika valid
         if (response && response.status === 200 && response.type !== 'opaque') {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone)).catch(()=>{});
+          caches.open(CACHE_NAME)
+            .then(cache => cache.put(event.request, clone))
+            .catch(() => {});
         }
         return response;
       })
       .catch(() =>
+        // Offline: ambil dari cache
         caches.match(event.request)
           .then(cached => cached || caches.match(OFFLINE_URL))
       )
   );
 });
 
-// ── PUSH NOTIFICATION: stok kritis & invoice jatuh tempo ─────────
+// ── PUSH NOTIFICATION ────────────────────────────────────────────
 self.addEventListener('push', (event) => {
   let data = { title: 'BMS — Notifikasi', body: 'Ada notifikasi baru', icon: '/assets/img/logo.png' };
   try { data = { ...data, ...event.data.json() }; } catch(e) {}
-
   event.waitUntil(
     self.registration.showNotification(data.title, {
-      body      : data.body,
-      icon      : data.icon || '/assets/img/logo.png',
-      badge     : '/assets/img/logo.png',
-      tag       : data.tag || 'bms-notif',
-      requireInteraction: data.urgent || false,
-      data      : { url: data.url || '/' },
+      body: data.body, icon: data.icon || '/assets/img/logo.png',
+      badge: '/assets/img/logo.png', tag: data.tag || 'bms-notif',
+      requireInteraction: data.urgent || false, data: { url: data.url || '/' },
     })
   );
 });
 
-// ── NOTIFIKASI DIKLIK: buka app ───────────────────────────────────
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const targetUrl = event.notification.data?.url || '/';
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true })
-      .then(clientList => {
-        // Fokus window yang sudah buka jika ada
-        for (const client of clientList) {
-          if (client.url === targetUrl && 'focus' in client) return client.focus();
-        }
-        // Buka window baru
-        if (clients.openWindow) return clients.openWindow(targetUrl);
-      })
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      for (const client of clientList) {
+        if (client.url === targetUrl && 'focus' in client) return client.focus();
+      }
+      if (clients.openWindow) return clients.openWindow(targetUrl);
+    })
   );
 });

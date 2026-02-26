@@ -226,5 +226,13 @@ document.addEventListener('click', e => {
     setupRealtimeListeners();
   };
 
-  console.log('✅ BMS v11.0 — ES Modules aktif');
+  console.log('✅ BMS v11.1 — ES Modules aktif');
+
+  // FIX v11.2: Auto-reload saat Service Worker baru mengambil alih
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      console.log('[SW] New version active — reloading...');
+      window.location.reload();
+    });
+  }
 })();

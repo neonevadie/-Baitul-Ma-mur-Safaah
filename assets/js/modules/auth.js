@@ -69,6 +69,19 @@ export async function doLogin() {
     email = state.appConfig?.roleEmails?.[state.selectedRole] || `${state.selectedRole}@bms-syafaah.id`;
   }
   if (!email) { showToast('Konfigurasi email tidak ditemukan!', 'error'); return; }
+  // FIX Safari iOS: tunggu appConfig jika belum ready (ES Modules load lambat di Safari)
+  if (!state.appConfig) {
+    const btnWait = document.getElementById('btn-login');
+    if (btnWait) btnWait.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memuat...';
+    let t = 0;
+    while (!state.appConfig && t < 6000) { await new Promise(r => setTimeout(r, 300)); t += 300; }
+    if (!state.appConfig) {
+      showToast('❌ Gagal terhubung ke Firebase. Periksa koneksi internet.', 'error');
+      if (btnWait) btnWait.innerHTML = '<i class="fas fa-sign-in-alt"></i> Masuk ke Dashboard';
+      return;
+    }
+  }
+
   const btn = document.getElementById('btn-login');
   if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Masuk...';
   try {

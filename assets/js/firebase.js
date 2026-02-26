@@ -16,7 +16,8 @@ import {
 import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
   createUserWithEmailAndPassword, EmailAuthProvider,
-  reauthenticateWithCredential, updatePassword as _updatePassword
+  reauthenticateWithCredential, updatePassword as _updatePassword,
+  setPersistence, browserLocalPersistence, inMemoryPersistence
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const firebaseConfig = {
@@ -32,6 +33,16 @@ const firebaseConfig = {
 const app     = initializeApp(firebaseConfig);
 const db      = getFirestore(app);
 const auth    = getAuth(app);
+
+// FIX Safari iOS: setPersistence — Safari ITP sering blokir indexedDB Firebase Auth
+(async () => {
+  try {
+    await setPersistence(auth, browserLocalPersistence);
+  } catch(e) {
+    try { await setPersistence(auth, inMemoryPersistence); } catch(e2) {}
+    console.warn('[BMS] Safari: fallback ke inMemory persistence');
+  }
+})();
 const storage = getStorage(app);
 
 export const col     = (path)         => collection(db, path);

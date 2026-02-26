@@ -758,32 +758,6 @@
           </div>
         </div>
 
-        <!-- Migrasi Foto ke Firebase Storage -->
-        <div class="card settings-section" id="card-storage-migration">
-          <div class="card-header">
-            <h3><i class="fas fa-cloud-upload-alt" style="color:var(--accent)"></i> Migrasi Foto ke Firebase Storage</h3>
-          </div>
-          <div class="card-body">
-            <p style="color:var(--text-muted);font-size:13.5px;margin-bottom:12px">
-              Foto lama disimpan sebagai <strong>base64</strong> langsung di dokumen Firestore (batas 1MB/dokumen).
-              Tool ini mengupload semua foto lama ke <strong>Firebase Storage</strong> dan mengganti dengan URL — dokumen jadi lebih kecil, lebih cepat, tidak ada risiko melebihi batas.
-            </p>
-            <div id="migration-status" style="display:none;padding:12px;border-radius:10px;background:var(--bg-tertiary);margin-bottom:12px;font-size:13px"></div>
-            <div style="display:flex;gap:10px;flex-wrap:wrap">
-              <button class="btn btn-primary" onclick="migrasiFotoKeStorage()" id="btn-migrasi-foto">
-                <i class="fas fa-cloud-upload-alt"></i> Mulai Migrasi Foto
-              </button>
-              <button class="btn btn-outline" onclick="cekStatusFoto()">
-                <i class="fas fa-search"></i> Cek Status Foto
-              </button>
-            </div>
-            <p style="margin-top:10px;font-size:12px;color:var(--text-muted)">
-              ⚠️ Pastikan <strong>Firebase Storage Rules</strong> sudah diset di Firebase Console → Storage → Rules sebelum menjalankan migrasi.
-              Lihat komentar di <code>firebase.js</code> untuk template rules yang benar.
-            </p>
-          </div>
-        </div>
-
         <!-- Danger Zone -->
         <div class="card settings-section">
           <div class="card-header"><h3><i class="fas fa-skull" style="color:var(--danger)"></i> Danger Zone</h3></div>
@@ -1233,11 +1207,10 @@
         <div class="field"><label>Lokasi Rak</label><input type="text" id="b-lokasi" placeholder="Rak A-1"></div>
       </div>
       <div class="field">
-        <label>Foto Barang (max 4 foto) — disimpan ke Firebase Storage</label>
+        <label>Foto Barang (max 4 foto)</label>
         <div class="upload-area" onclick="document.getElementById('foto-input').click()">
           <i class="fas fa-camera"></i>
-          <p>Klik untuk upload foto <strong>(.jpg, .png, max 5MB)</strong></p>
-          <p id="foto-upload-label" style="font-size:12px;color:var(--accent);margin-top:4px"></p>
+          <p>Klik untuk upload foto <strong>(.jpg, .png)</strong></p>
         </div>
         <input type="file" id="foto-input" accept="image/*" multiple style="display:none" onchange="previewFoto(event)">
         <div class="upload-preview" id="foto-preview"></div>
@@ -1246,7 +1219,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-barang')">Batal</button>
-      <button class="btn btn-primary" id="btn-simpan-barang" onclick="simpanBarang()"><i class="fas fa-save"></i> Simpan Barang</button>
+      <button class="btn btn-primary" onclick="simpanBarang()"><i class="fas fa-save"></i> Simpan Barang</button>
     </div>
   </div>
 </div>
@@ -1283,18 +1256,17 @@
       </div>
       <div class="field">
         <label>Ganti Foto (opsional — kosongkan untuk pakai foto lama)</label>
-        <div class="upload-preview" id="eb-foto-preview" style="margin-bottom:8px;display:flex;gap:8px;flex-wrap:wrap"></div>
         <div class="upload-area" onclick="document.getElementById('eb-foto-input').click()">
           <i class="fas fa-camera"></i>
-          <p>Klik untuk ganti foto <strong>(.jpg, .png, max 5MB)</strong> — upload ke Storage</p>
+          <p>Klik untuk ganti foto <strong>(.jpg, .png)</strong></p>
         </div>
-        <input type="file" id="eb-foto-input" accept="image/*" multiple style="display:none" onchange="previewEditFoto(event)">
-        <div class="upload-preview" id="eb-foto-new-preview" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"></div>
+        <input type="file" id="eb-foto-input" accept="image/*" multiple style="display:none">
+        <div class="upload-preview" id="eb-foto-preview" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"></div>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-edit-barang')">Batal</button>
-      <button class="btn btn-primary" id="btn-simpan-edit-barang" onclick="simpanEditBarang()"><i class="fas fa-save"></i> Simpan Perubahan</button>
+      <button class="btn btn-primary" onclick="simpanEditBarang()"><i class="fas fa-save"></i> Simpan Perubahan</button>
     </div>
   </div>
 </div>

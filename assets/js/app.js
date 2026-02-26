@@ -885,6 +885,107 @@ async function gantiPassword() {
   }
 }
 
+// ───────────────────── FIREBASE STORAGE MIGRATION ────────────────
+// Migrasi satu kali: base64 di Firestore → URL di Firebase Storage
+// Hanya Owner yang bisa menjalankan ini.
+// Setelah selesai, dokumen barang hanya berisi array URL kecil (<50 byte/url).
+
+async function cekStatusFoto() {
+  const status = document.getElementById('migration-status');
+  if (!status) return;
+  status.style.display = 'block';
+  status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menganalisis foto...';
+
+  let base64Count = 0, urlCount = 0, emptyCount = 0, totalBarang = DB.barang.length;
+  DB.barang.forEach(b => {
+    const fotos = b.foto || [];
+    if (!fotos.length) { emptyCount++; return; }
+    fotos.forEach(f => {
+      if (window.ST.isUrl(f)) urlCount++;
+      else base64Count++;
+    });
+  });
+
+  const pct = totalBarang ? Math.round(((totalBarang - Math.ceil(base64Count / Math.max(urlCount + base64Count, 1) * totalBarang)) / totalBarang) * 100) : 100;
+  status.innerHTML = `
+    <strong>📊 Status Foto Produk</strong><br>
+    Total produk: <strong>${totalBarang}</strong><br>
+    Foto sudah di Storage (URL): <strong style="color:var(--success)">${urlCount}</strong><br>
+    Foto masih base64 di Firestore: <strong style="color:${base64Count > 0 ? 'var(--danger)' : 'var(--success)'}">${base64Count}</strong><br>
+    Produk tanpa foto: <strong>${emptyCount}</strong><br>
+    ${base64Count > 0
+      ? `<span style="color:var(--warning)">⚠️ Ada ${base64Count} foto yang perlu dimigrasi ke Storage.</span>`
+      : `<span style="color:var(--success)">✅ Semua foto sudah di Firebase Storage!</span>`}`;
+}
+
+async function migrasiFotoKeStorage() {
+  if (currentUser?.role !== 'owner') {
+    showToast('❌ Hanya Owner yang bisa menjalankan migrasi!', 'error'); return;
+  }
+  if (!confirm('Migrasi semua foto base64 ke Firebase Storage?\n\nProses ini membaca semua barang, upload foto ke Storage, dan update Firestore. Bisa memakan beberapa menit tergantung jumlah foto.\n\nLanjutkan?')) return;
+
+  const statusEl = document.getElementById('migration-status');
+  const btnEl    = document.getElementById('btn-migrasi-foto');
+  if (statusEl) statusEl.style.display = 'block';
+  if (btnEl) btnEl.disabled = true;
+
+  const updateStatus = (msg) => {
+    if (statusEl) statusEl.innerHTML = msg;
+  };
+
+  let processed = 0, migrated = 0, skipped = 0, errors = 0;
+  const barangList = DB.barang.filter(b => b._id); // hanya yang ada di Firestore
+
+  updateStatus(`<i class="fas fa-spinner fa-spin"></i> Memulai migrasi ${barangList.length} produk...`);
+
+  for (const b of barangList) {
+    const fotos = b.foto || [];
+    if (!fotos.length) { processed++; skipped++; continue; }
+
+    // Cek apakah ada foto base64
+    const hasBase64 = fotos.some(f => !window.ST.isUrl(f));
+    if (!hasBase64) { processed++; skipped++; continue; }
+
+    try {
+      updateStatus(`<i class="fas fa-spinner fa-spin"></i> Migrasi ${processed + 1}/${barangList.length}: <strong>${b.nama}</strong>...`);
+
+      // Upload semua foto — URL tetap URL, base64 diupload
+      const newUrls = await Promise.all(fotos.map(async (f) => {
+        if (window.ST.isUrl(f)) return f; // sudah URL, skip
+        return await window.ST.uploadBase64(f, b._id);
+      }));
+
+      // Update Firestore — ganti base64 dengan URL
+      await window.FS.updateDoc(window.FS.docRef('barang', b._id), { foto: newUrls });
+
+      // Update local cache
+      const idx = DB.barang.findIndex(x => x._id === b._id);
+      if (idx >= 0) DB.barang[idx].foto = newUrls;
+
+      migrated++;
+    } catch(e) {
+      console.error(`[Migration] Error on ${b.nama}:`, e);
+      errors++;
+    }
+    processed++;
+  }
+
+  const resultMsg = `
+    <strong>✅ Migrasi Selesai!</strong><br>
+    Produk diproses: <strong>${processed}</strong><br>
+    Foto berhasil dimigrasi: <strong style="color:var(--success)">${migrated} produk</strong><br>
+    Sudah Storage / tanpa foto (skip): <strong>${skipped}</strong><br>
+    ${errors > 0 ? `<span style="color:var(--danger)">❌ Gagal: ${errors} produk — cek console</span>` : ''}
+    <br><em style="font-size:12px;color:var(--text-muted)">Refresh halaman untuk melihat perubahan.</em>`;
+
+  updateStatus(resultMsg);
+  if (btnEl) btnEl.disabled = false;
+  addLog('setting', `Migrasi foto ke Storage: ${migrated} produk berhasil, ${errors} gagal`);
+  showToast(errors === 0
+    ? `✅ Migrasi selesai — ${migrated} produk dimigrasi!`
+    : `⚠️ Migrasi selesai dengan ${errors} error`, errors > 0 ? 'warning' : 'success');
+}
+
 // ───────────────────── CLEAR DATA FUNCTIONS ─────────────────────
 async function clearCollection(colName, label) {
   if (currentUser?.role !== 'owner') { showToast('❌ Hanya Owner yang bisa hapus semua data!', 'error'); return; }
@@ -1138,8 +1239,21 @@ async function simpanBarang() {
   const nama = document.getElementById('b-nama')?.value.trim();
   const kode = document.getElementById('b-kode')?.value.trim();
   if (!nama||!kode) { showToast('Nama dan kode wajib diisi!','error'); return; }
-  const fotoEl  = document.getElementById('foto-preview');
-  const fotoArr = fotoEl ? Array.from(fotoEl.querySelectorAll('img')).map(img=>img.src) : [];
+
+  // ── Storage v4.0: upload File objects, simpan URL (bukan base64) ──
+  const btnSave = document.getElementById('btn-simpan-barang');
+  if (btnSave) btnSave.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+  let fotoArr = [];
+  if (_pendingFotoFiles.length > 0) {
+    try {
+      showToast('📤 Mengupload foto ke Firebase Storage...', 'info');
+      // Upload sementara pakai 'new' — akan di-rename setelah dapat docId
+      fotoArr = await window.ST.uploadFotoArr(_pendingFotoFiles, 'new');
+    } catch(e) {
+      showToast('⚠️ Upload foto gagal: ' + e.message + ' — barang tetap disimpan tanpa foto', 'warning');
+    }
+  }
+
   const data = {
     kode, nama,
     kategori: document.getElementById('b-kategori')?.value||'Lainnya',
@@ -1150,15 +1264,22 @@ async function simpanBarang() {
     minStok : parseInt(document.getElementById('b-minstock')?.value)||20,
     lokasi  : document.getElementById('b-lokasi')?.value||'',
     masuk   : parseInt(document.getElementById('b-stok')?.value)||0,
-    keluar  : 0, foto: fotoArr,
+    keluar  : 0,
+    foto    : fotoArr,   // Array of Storage URLs (or empty)
   };
   try {
     await window.FS.addDoc(window.FS.col('barang'), data);
-    addLog('tambah','Tambah barang: '+nama);
+    addLog('tambah', 'Tambah barang: ' + nama + (fotoArr.length ? ` (${fotoArr.length} foto)` : ''));
     showToast('✅ Barang tersimpan ke cloud!');
-  } catch(e) { DB.barang.unshift(data); renderBarang(); showToast('✅ Barang ditambahkan (offline)'); }
+  } catch(e) {
+    DB.barang.unshift(data); renderBarang();
+    showToast('✅ Barang ditambahkan (offline)');
+  }
+  _pendingFotoFiles = [];
+  if (btnSave) btnSave.innerHTML = '<i class="fas fa-save"></i> Simpan Barang';
   fillDropdowns(); closeModal('modal-barang');
   ['b-kode','b-nama','b-stok','b-hbeli','b-hjual','b-desc'].forEach(id=>{ const el=document.getElementById(id); if(el)el.value=''; });
+  const prev = document.getElementById('foto-preview'); if(prev) prev.innerHTML='';
 }
 
 function editBarang(i) {
@@ -1201,16 +1322,23 @@ async function simpanEditBarang() {
   const nama = document.getElementById('eb-nama')?.value.trim();
   const kode = document.getElementById('eb-kode')?.value.trim();
   if (!nama||!kode) { showToast('Nama dan kode wajib diisi!','error'); return; }
-  // Ambil foto baru jika ada, jika tidak pakai foto lama
-  const prevEl  = document.getElementById('eb-foto-preview');
-  const newFoto = document.getElementById('eb-foto-input');
-  let fotoArr   = b.foto || [];
-  if (newFoto?.files?.length) {
-    const reads = Array.from(newFoto.files).slice(0,4).map(file => new Promise(res=>{
-      const r = new FileReader(); r.onload=e=>res(e.target.result); r.readAsDataURL(file);
-    }));
-    fotoArr = await Promise.all(reads);
+
+  // ── Storage v4.0 — upload foto baru jika ada, hapus foto lama dari Storage ──
+  const btnSave = document.getElementById('btn-simpan-edit-barang');
+  if (btnSave) btnSave.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+  let fotoArr = b.foto || [];   // fallback: pakai foto lama
+  if (_pendingEditFotoFiles.length > 0) {
+    try {
+      showToast('📤 Mengupload foto baru ke Firebase Storage...', 'info');
+      const newUrls = await window.ST.uploadFotoArr(_pendingEditFotoFiles, b._id || 'edit');
+      // Hapus foto lama dari Storage (async, jangan tunggu)
+      (b.foto || []).forEach(url => window.ST.deleteFoto(url).catch(() => {}));
+      fotoArr = newUrls;
+    } catch(e) {
+      showToast('⚠️ Upload foto gagal: ' + e.message + ' — foto lama dipertahankan', 'warning');
+    }
   }
+
   const updated = {
     kode, nama,
     kategori : document.getElementById('eb-kategori')?.value || b.kategori,
@@ -1222,7 +1350,7 @@ async function simpanEditBarang() {
     lokasi   : document.getElementById('eb-lokasi')?.value||'',
     masuk    : b.masuk||0,
     keluar   : b.keluar||0,
-    foto     : fotoArr,
+    foto     : fotoArr,   // Storage URLs
   };
   try {
     if (b._id) {
@@ -1231,67 +1359,89 @@ async function simpanEditBarang() {
       DB.barang[i] = { ...b, ...updated };
       renderBarang(); renderStok(); fillDropdowns();
     }
-    addLog('edit', `Edit barang: ${nama}`);
+    addLog('edit', `Edit barang: ${nama}${_pendingEditFotoFiles.length ? ' (foto baru)' : ''}`);
     showToast('✅ Barang berhasil diupdate!');
   } catch(e) {
     DB.barang[i] = { ...b, ...updated };
     renderBarang(); renderStok(); fillDropdowns();
     showToast('✅ Barang diupdate (offline)');
   }
+  _pendingEditFotoFiles = [];
+  if (btnSave) btnSave.innerHTML = '<i class="fas fa-save"></i> Simpan Perubahan';
   closeModal('modal-edit-barang');
 }
 
 async function hapusBarang(i) {
   if (currentUser?.role === 'sales') { showToast('❌ Sales tidak bisa hapus barang!', 'error'); return; }
   const b = DB.barang[i];
-  if (!confirm(`Hapus barang "${b.nama}"?`)) return;
+  if (!confirm(`Hapus barang "${b.nama}" beserta ${(b.foto||[]).length} foto?`)) return;
   try {
-    if (b._id) await window.FS.deleteDoc(window.FS.docRef('barang',b._id));
-    else { DB.barang.splice(i,1); renderBarang(); }
-    addLog('hapus','Hapus barang: '+b.nama);
+    if (b._id) {
+      await window.FS.deleteDoc(window.FS.docRef('barang', b._id));
+      // Hapus foto dari Storage secara async (tidak menghentikan flow jika gagal)
+      (b.foto || []).forEach(url => window.ST.deleteFoto(url).catch(() => {}));
+    } else {
+      DB.barang.splice(i, 1); renderBarang();
+    }
+    addLog('hapus', 'Hapus barang: ' + b.nama);
     showToast('🗑️ Barang dihapus!');
-  } catch(e) { DB.barang.splice(i,1); renderBarang(); showToast('🗑️ Barang dihapus (offline)'); }
+  } catch(e) {
+    DB.barang.splice(i, 1); renderBarang();
+    showToast('🗑️ Barang dihapus (offline)');
+  }
 }
+
+// ── previewFoto — Storage migration (v4.0) ────────────────────────
+// File objects disimpan di _pendingFotoFiles untuk diupload saat
+// simpanBarang() dipanggil. Preview pakai URL.createObjectURL()
+// sehingga TIDAK ada base64 yang disimpan ke Firestore.
+let _pendingFotoFiles = [];   // File[] — di-clear setiap buka modal
 
 function previewFoto(event) {
   const preview = document.getElementById('foto-preview');
   preview.innerHTML = '';
-  const MAX_SIZE_MB = 1;
-  // #22 — Kompres gambar sebelum preview agar Base64 tidak terlalu besar
-  Array.from(event.target.files).slice(0,4).forEach(file => {
+  _pendingFotoFiles = [];
+  const MAX_SIZE_MB = 5; // Storage menerima file lebih besar dari base64
+
+  Array.from(event.target.files).slice(0, 4).forEach(file => {
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      showToast(`⚠️ "${file.name}" terlalu besar (maks ${MAX_SIZE_MB}MB). Gunakan foto yang lebih kecil.`, 'warning');
+      showToast(`⚠️ "${file.name}" terlalu besar (maks ${MAX_SIZE_MB}MB).`, 'warning');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = e => {
-      // Kompres via canvas — resize ke max 400x400px
-      const imgEl = new Image();
-      imgEl.onload = () => {
-        const MAX_DIM = 400;
-        let w = imgEl.width, h = imgEl.height;
-        if (w > MAX_DIM || h > MAX_DIM) {
-          if (w > h) { h = Math.round(h * MAX_DIM / w); w = MAX_DIM; }
-          else       { w = Math.round(w * MAX_DIM / h); h = MAX_DIM; }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(imgEl, 0, 0, w, h);
-        const compressed = canvas.toDataURL('image/jpeg', 0.75); // kualitas 75%
-        const img = document.createElement('img');
-        img.src = compressed;
-        img.style.cssText = 'width:80px;height:80px;object-fit:cover;border-radius:10px;border:2px solid var(--border)';
-        preview.appendChild(img);
-        // Estimasi ukuran
-        const kb = Math.round(compressed.length * 0.75 / 1024);
-        if (kb > 200) showToast(`⚠️ Foto masih ${kb}KB setelah kompresi. Pertimbangkan gambar lebih kecil.`, 'warning');
-      };
-      imgEl.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
+    _pendingFotoFiles.push(file);
+    const url = URL.createObjectURL(file);
+    const img = document.createElement('img');
+    img.src   = url;
+    img.style.cssText = 'width:80px;height:80px;object-fit:cover;border-radius:10px;border:2px solid var(--border)';
+    img.title = `${file.name} (${(file.size/1024).toFixed(0)}KB)`;
+    preview.appendChild(img);
   });
+  const lbl = document.getElementById('foto-upload-label');
+  if (lbl) lbl.textContent = `${_pendingFotoFiles.length} foto dipilih — upload ke Firebase Storage`;
 }
 
+// previewEditFoto — untuk modal edit barang
+let _pendingEditFotoFiles = [];
+
+function previewEditFoto(event) {
+  const preview = document.getElementById('eb-foto-new-preview');
+  if (preview) preview.innerHTML = '';
+  _pendingEditFotoFiles = [];
+  const MAX_SIZE_MB = 5;
+
+  Array.from(event.target.files).slice(0, 4).forEach(file => {
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      showToast(`⚠️ "${file.name}" terlalu besar (maks ${MAX_SIZE_MB}MB).`, 'warning');
+      return;
+    }
+    _pendingEditFotoFiles.push(file);
+    const url = URL.createObjectURL(file);
+    const img = document.createElement('img');
+    img.src   = url;
+    img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:10px;border:2px solid var(--border)';
+    if (preview) preview.appendChild(img);
+  });
+}
 // Toggle field jatuh tempo berdasarkan metode bayar
 function toggleTempoField(metode) {
   const row = document.getElementById('tempo-row');
